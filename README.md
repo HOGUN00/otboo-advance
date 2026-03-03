@@ -4,7 +4,7 @@
 > 팀 프로젝트 포크 후 개인적으로 아키텍처 개선 및 기능 고도화 진행 중
 
 [![Java](https://img.shields.io/badge/Java-17-orange)](https://openjdk.org/)
-[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.x-green)](https://spring.io/projects/spring-boot)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-green)](https://spring.io/projects/spring-boot)
 [![Redis](https://img.shields.io/badge/Redis%20Stream→Kafka-리팩토링중-red)](https://kafka.apache.org/)
 [![Elasticsearch](https://img.shields.io/badge/Elasticsearch-적용중-yellow)](https://www.elastic.co/)
 [![Datadog](https://img.shields.io/badge/Datadog-모니터링중-purple)](https://www.datadoghq.com/)
@@ -114,16 +114,16 @@ User A (Server 1) → DM 전송
 
 ### 3. Redis 직렬화 3가지 함정
 
-Redis Stream에 메시지를 저장할 때 직렬화 문제가 연달아 발생했습니다.
+Redis Stream에 메시지를 저장할 때 `GenericJackson2JsonRedisSerializer`에 ObjectMapper를 복사해 `JavaTimeModule`을 등록하는 방식을 사용했으나, 세 가지 문제가 연달아 발생했습니다.
 
 **문제 1 - LocalDateTime 직렬화 오류**: 기본 설정에서 LocalDateTime이 배열 형태로 직렬화됨
 
-**문제 2 - 클래스 타입 정보 포함**: `GenericJackson2JsonRedisSerializer` 사용 시 직렬화 데이터에 클래스 경로가 포함됨  
+**문제 2 - 클래스 타입 정보 포함**: 역직렬화 편의를 위해 `activateDefaultTyping`을 설정하면 직렬화 데이터에 클래스 경로가 포함됨  
 → 추후 클래스 위치 변경 시 역직렬화 오류 발생 가능
 
 **문제 3 - 필드 변경 시 역직렬화 오류**: 오래된 캐시 데이터의 필드와 현재 클래스 필드가 다를 경우 매핑 실패
 
-**해결**: 클래스 타입 정보에서 자유로운 **String JSON 직렬화 방식** 채택  
+**해결**: 클래스 타입 정보에서 자유로운 **String JSON 직렬화 방식**으로 전환  
 \+ Spring이 기본 제공하는 `ObjectMapper` 활용 (Spring 공식 문서 확인)
 - `JavaTimeModule` 기본 포함 → LocalDateTime 직렬화 해결
 - `FAIL_ON_UNKNOWN_PROPERTIES = false` 기본 설정 → 필드 불일치 시 무시
