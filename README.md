@@ -5,13 +5,10 @@
 
 [![Java](https://img.shields.io/badge/Java-17-orange)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-green)](https://spring.io/projects/spring-boot)
-[![Redis](https://img.shields.io/badge/Redis%20Stream→Kafka-리팩토링중-red)](https://kafka.apache.org/)
-[![Elasticsearch](https://img.shields.io/badge/Elasticsearch-적용중-yellow)](https://www.elastic.co/)
-[![Datadog](https://img.shields.io/badge/Datadog-모니터링중-purple)](https://www.datadoghq.com/)
 
 🔗 [배포 링크](http://otboo-alb-1790211223.ap-northeast-2.elb.amazonaws.com/#/closet) &nbsp;|&nbsp;
 🔍 [SonarQube](https://sonarcloud.io/project/overview?id=codeit-team2-advanced-project_sb06-otboo-team2) &nbsp;|&nbsp;
-🗒️ [트러블슈팅 Notion](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)
+🗒️ [개발 리포트 Notion](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)
 
 > 원본 프로젝트: [codeit-team2-advanced-project/sb06-otboo-team2](https://github.com/codeit-team2-advanced-project/sb06-otboo-team2) (5인 팀 프로젝트, 2026.01.22 ~ 02.27)  
 > 본 저장소는 개인 아키텍처 개선 및 기술 고도화를 목적으로 포크한 버전입니다.
@@ -23,9 +20,9 @@
 1. [담당 기능 요약](#-담당-기능-요약)
 2. [기술적 의사결정](#-기술적-의사결정)
 3. [트러블슈팅](#-트러블슈팅)
-4. [개인 개선 작업 (포크 후)](#-개인-개선-작업-포크-후)
-5. [성능 측정 JMeter](#-성능-측정-jmeter)
-6. [모니터링 Datadog](#-모니터링-datadog)
+4. [성능 측정](#-성능-측정)
+5. [병목 분석 방법](#-병목-분석-방법)
+6. [향후 개선 사항](#-향후-개선-사항)
 7. [코드 품질 관리](#-코드-품질-관리)
 8. [기술 스택](#-기술-스택)
 9. [로컬 실행 방법](#-로컬-실행-방법)
@@ -40,7 +37,7 @@
 |------|-----------|------|
 | 실시간 1:1 DM | WebSocket + Redis Stream | 다중 서버 환경 세션 불일치 해결 |
 | 실시간 알림 | SSE + Redis Stream | 단방향 알림, 연결 안정성 보장 |
-| 대용량 알림 통계 | Spring Batch + ShedLock | 카테시안 곱 해결, 분산 중복 실행 방지 |
+| 대용량 알림 통계 | Spring Batch + ShedLock | 카테시안 곱 검증, 분산 중복 실행 방지 |
 | 장애 대응 | Resilience4j Circuit Breaker | Redis 장애 전파 차단 |
 
 ---
@@ -155,16 +152,13 @@ Redis Stream에 메시지를 저장할 때 `GenericJackson2JsonRedisSerializer`�
 
 ---
 
-### 6. Spring Batch 카테시안 곱 문제
+### 6. Spring Batch 카테시안 곱 문제 — 설계 검증
 
-**상황**: 알림 통계 배치에서 User ↔ Feed ↔ Like ↔ Comment 1:N 관계를 `LEFT JOIN`으로 한 번에 조회  
-→ 유저 1명 기준: 피드 20개 × 좋아요 30개 × 댓글 40개 = **24,000행** 생성, 심각한 I/O 병목
+**상황**: 알림 통계 배치에서 User ↔ Feed ↔ Like ↔ Comment 1:N 관계를 `LEFT JOIN`으로 한 번에 조회하면 유저 1명 기준 피드 20개 × 좋아요 30개 × 댓글 40개 = **24,000행**이 생길 수 있다고 판단해, 처음부터 **스칼라 서브쿼리 3개**(피드 수, 좋아요 수, 댓글 수)로 설계했습니다.
 
-**해결**:
-- 멀티 조인 제거 → **스칼라 서브쿼리**로 피드 수, 좋아요 수, 댓글 수를 각각 독립 쿼리로 조회
-- 엔티티 대신 **DTO 프로젝션** 사용 → `LazyInitializationException` 방지, N+1 문제 제거
+**검증**: 이 설계 판단을 실제로 검증한 적은 없었기에, `EXPLAIN ANALYZE`로 naive `LEFT JOIN` 버전과 데이터 규모별(N=100/500/1,000/5,000)로 비교 측정했습니다. 소규모(N=100)에서는 오히려 naive join이 4~6배 빨랐고, N=1,000부터 스칼라 서브쿼리가 역전했습니다. N=5,000에서는 PostgreSQL JIT 컴파일이 이 쿼리 패턴에 불리하게 작용해 일시적으로 역전됐는데, JIT를 끄고 재측정하니 스칼라 서브쿼리가 다시 우위를 보였습니다.
 
-**결과**: DB 응답을 유저당 1행으로 압축, 배치 처리 시간 단축
+**결과**: 기존 설계(스칼라 서브쿼리)를 그대로 유지. 엔티티 대신 DTO 프로젝션 사용으로 `LazyInitializationException` 방지 및 N+1 문제 회피도 함께 확인.
 
 ---
 
@@ -174,82 +168,85 @@ Redis Stream에 메시지를 저장할 때 `GenericJackson2JsonRedisSerializer`�
 
 **해결**: `ShedLock` 도입 → DB 기반 분산 락으로 한 서버만 배치 실행 보장
 
-**향후 계획**: 배치를 앱 서버에서 분리하여 Jenkins에서 배치 전용 서버를 실행, 서비스 서버 부담 제거
+---
+
+### 8. 배치 삭제 로직 누락
+
+**상황**: Spring Batch 처리 시간을 실측하는 과정에서, 알림 정리 배치(`deleteOldNotificationsJob`)가 이름과 달리 실제로는 삭제를 수행하지 않는다는 것을 발견했습니다. Writer가 `merge()`만 호출하고 있어 실질적인 삭제 효과가 없었고, 기존 통합 테스트가 H2 프로파일이라 실제 Postgres 환경에서 커밋 동작이 검증된 적이 없었던 것이 원인이었습니다.
+
+**해결**: `remove()`로 수정. 커서 기반 리더(`JpaCursorItemReader`)는 스냅샷 기준으로 동작해 삭제 중 페이징 스킵 위험이 없다는 것을 확인하고 그대로 유지했습니다. 소규모(149건) 검증 후 전체(45,552건)로 확장, 삭제 전후 COUNT 비교로 스킵·중복 없음을 검증했습니다.
+
+**결과**: 45,552건을 52초(약 870 rows/sec)에 정상 처리.
 
 ---
 
-## 🚀 개인 개선 작업 (포크 후)
+### 9. 동시 다발 메시지 전송 시 DB 커넥션 풀 고갈로 인한 메시지 유실
 
-### 1. Redis Stream → Kafka 리팩토링 (진행 중)
+**상황**: WebSocket DM 동시접속 부하테스트(k6) 중, 기본 HikariCP 풀(10)이 50건의 동시 메시지 전송 요청만으로 포화되어 다수가 유실되는 것을 발견했습니다. DM 저장 로직이 sender/receiver 조회, 채팅방 조회/생성, 메시지 저장까지 DB 왕복을 4~5회 수행하는 구조라, 소규모 동시 쓰기 요청만으로도 풀이 바로 고갈됐습니다.
 
-팀 프로젝트에서 Redis Stream을 선택한 이유는 당시 서비스 규모에서 운영 비용과 실시간성의 균형이 맞았기 때문입니다. 하지만 직접 운영해보면서 다음 한계를 확인했습니다.
+**발견**: 이 저하가 latency 지표로는 전혀 드러나지 않았습니다. p95는 500 ~ 5,000명 구간에서 54~148ms로 거의 변화가 없었는데, 이는 latency 지표가 "성공한 요청"만 집계하기 때문이었습니다. 실제로는 풀 고갈로 유실되는 비율(500명 15.5% → 5,000명 95.9%)만 계속 증가했습니다 — 시스템이 느려지는 게 아니라 "일부만 성공하고 나머지는 버려지는" 방식으로 무너진다는 것을 실측으로 확인했습니다.
 
-**한계**:
-- PEL 재전송 스케줄러를 **개발자가 직접 구현**해야 하는 관리 비용
-- 도메인이 많아질수록 스트림 관리 복잡도 증가
-- Redis 단일 장애 지점(SPOF) 위험
-
-**Kafka 전환 후 기대 효과**:
-
-| 항목 | Redis Stream | Kafka |
-|------|-------------|-------|
-| 내구성 | 인메모리 (AOF 설정 필요) | 디스크 기반, 기본 보장 |
-| PEL 관리 | 직접 구현 필요 | 자동 처리 |
-| 파티셔닝 | 제한적 | 유연한 수평 확장 |
-| 운영 복잡도 | 낮음 | 높음 (규모 확장 시 유리) |
-
-> ⚙️ **진행 중** — Consumer Group 및 메시지 직렬화 설계 중
+**해결**: 풀 크기를 50으로 확장해 포화 임계점을 500건 선으로 이동시켰으나, 이는 임계점을 늦출 뿐 근본 해결은 아니라고 판단했습니다. 구체적 개선 방향은 [향후 개선 사항](#-향후-개선-사항) 참고.
 
 ---
 
-### 2. Elasticsearch 적용 (진행 중)
+### 10. SSE 재연결 시 알림 유실
 
-**적용 대상**: 의상 검색, 피드 검색
+**상황**: SSE 알림 채널 부하테스트 중 일부 유저가 알림을 받지 못하는 현상을 발견했습니다. 처음엔 "구독 확인(ack) 전송과 registry 등록 사이의 좁은 시간창" 가설을 세웠으나, 실측 결과 이 구간이 최대 7ms로 매우 짧고 테스트의 알림 발행은 그보다 훨씬 뒤에 일어나 이 가설로는 설명되지 않았습니다.
 
-**도입 이유**:
-- 기존 LIKE 쿼리 기반 검색 → 인덱스 미사용, 풀스캔 발생
-- 의상 태그·속성 다중 조건 검색 시 QueryDSL만으로 한계
-- 한국어 형태소 분석 기반 검색 품질 향상 (nori 토크나이저)
+**원인**: 재현을 반복하며 로그를 추적한 결과, 미수신 유저는 매번 짧은 간격을 두고 같은 계정으로 두 번 연결하고 있었습니다. `configEmitter()`의 `onCompletion` 콜백이 인스턴스 구분 없이 userId 키로만 registry를 삭제하는 구조라, 재연결 시 옛 연결의 완료 콜백이 비동기로 지연 실행되면서 방금 등록된 새 연결까지 지워버리는 문제였습니다. 별도 에러 로그도 남지 않아 원인 추적이 까다로웠습니다. 브라우저 탭 여러 개, 새로고침 직후 재연결 등 실서비스에서도 충분히 발생 가능한 시나리오입니다.
 
-> ⚙️ **진행 중** — 인덱스 매핑 설계 및 동기화 전략(이벤트 기반 vs 배치) 검토 중
+```java
+// 수정 후
+emitter.onCompletion(() -> {
+    SseEmitter current = sseEmitterRepository.findById(userId);
+    if (current == emitter) {
+        sseEmitterRepository.deleteById(userId);
+    }
+});
+```
 
----
-
-## 📊 성능 측정 (JMeter)
-
-> 🔄 **측정 진행 중** — Before/After 수치 측정 예정
-
-| 측정 항목 | Before | After | 개선율 |
-|-----------|--------|-------|--------|
-| DM 전송 TPS | - | - | - |
-| 알림 SSE 동시 연결 수 | - | - | - |
-| 의상 검색 응답시간 (p95) | - | - | - |
-| 배치 처리 소요시간 | - | - | - |
-
-**테스트 시나리오**
-- 동시 사용자 N명 DM 전송 시 처리량 및 응답시간
-- SSE 다중 연결 시 서버 메모리 사용량
-- Elasticsearch 전환 전후 검색 응답시간 비교 (LIKE 쿼리 vs ES)
-- Kafka 전환 전후 메시지 처리 지연시간 비교
+**결과**: 키가 아닌 인스턴스 비교로 삭제하도록 수정. 재연결을 의도적으로 유도하는 재현 시나리오로 수정 전(유실)/후(정상 수신)를 직접 검증했습니다.
 
 ---
 
-## 📈 모니터링 (Datadog)
+## 📊 성능 측정
 
-> 🔄 **연동 진행 중**
+k6·PostgreSQL EXPLAIN ANALYZE·Spring Batch 메타테이블로 실시간 파이프라인과 배치를 계층별(쿼리 → 배치 → 파이프라인 → 인프라)로 나눠 실측했습니다.
 
-**수집 지표**
-- JVM Heap 사용량, GC 빈도
-- Redis / Kafka Consumer Lag
-- API 응답시간 p50 / p95 / p99
-- ECS Task CPU·메모리 사용률
+| 측정 항목 | 결과 |
+|-----------|------|
+| WebSocket DM 부하테스트 (500~5,000 VU) | 유실률 15.5%→95.9% 선형 증가, p95 latency는 54~148ms로 안정 → HikariCP 커넥션 풀이 병목임을 확인 |
+| Redis Stream Consumer 순수 처리량 | 약 6,300 msg/sec (실제 서비스 경로 관측치의 20배 이상 여유) |
+| 카테시안 곱 쿼리 벤치마크 | N=1,000부터 스칼라 서브쿼리가 naive LEFT JOIN 대비 우위 역전 확인 |
+| Spring Batch 처리량 | 알림 정리 배치 45,552건/52초(약 870 rows/sec) |
+| SSE 배치 알림 팬아웃 (500명) | 325/325 전원 수신, 오발송 0건, p95 약 420ms |
 
-**알림 설정 예정**
-- Consumer Lag 임계치 초과 시 Slack 알림
-- Circuit Breaker 상태 변경 시 Slack/이메일 알림 (기존 로그만 남기던 부분 고도화)
-- p99 응답시간 500ms 초과 시 알림
+각 측정이 정확히 어느 구간을 재는지는 [개발 리포트 Notion](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)의 성능 측정 범위 정리 페이지에서 파이프라인 다이어그램과 함께 확인할 수 있습니다.
 
-> 📸 대시보드 스크린샷 추가 예정
+---
+
+## 🔍 병목 분석 방법
+
+부하테스트 중 발생한 병목은 k6 자체 지표(latency, 유실률)와 서버 스레드 덤프(`jcmd Thread.print`)로 분석했습니다. 3,000 VU 이후 서버가 일시 무응답에 빠진 원인을, 스레드 덤프에서 처리 슬롯 216개(Tomcat 200 + WebSocket inbound 16) 전부가 `HikariPool.getConnection()`에서 대기 중임을 확인해 특정했습니다. 데드락(BLOCKED 스레드 0개)과 GC 정지 가능성은 스레드 덤프 자체로 배제했습니다.
+
+---
+
+## 🔭 향후 개선 사항
+
+**성능 측정으로 도출된 방향**
+- PgBouncer 등 커넥션 풀러 도입 — HikariCP 풀 재포화 임계점(동시 쓰기 500건) 자체를 높이는 방향
+- DM 저장 로직의 DB 왕복 횟수(4~5회) 축소
+- 백프레셔 도입 — 처리 슬롯 216개 근접 시 신규 요청 조기 거절
+- Redis Stream 발행을 DB 저장보다 선행시키는 Write-Ahead 구조 검토
+- 위 개선 이후 커넥션 풀/스레드 수 재조정
+
+**기타 아이디어 (미착수)**
+- Redis Stream → Kafka 전환 검토 (PEL 수동 관리 비용, SPOF 리스크 고려)
+- Elasticsearch 도입 검토 (의상/피드 검색 성능)
+- Datadog 연동 (현재는 k6 + 스레드 덤프로 병목 분석 대체)
+- 서킷브레이커 상태 변경 시 Slack/이메일 알림
+- 배치를 앱 서버에서 분리해 Jenkins 전용 배치 서버로 실행
 
 ---
 
@@ -271,13 +268,12 @@ SonarQube를 GitHub Actions와 연동하여 PR 단위로 품질을 자동 검증
 | 분류 | 기술 |
 |------|------|
 | Language | Java 17 |
-| Framework | Spring Boot 3.x, Spring Security, Spring WebFlux, Spring Batch |
+| Framework | Spring Boot 3.x, Spring Security, Spring Batch |
 | Database | PostgreSQL, Redis |
-| Message Broker | Redis Stream → **Kafka** (전환 중) |
-| Search | **Elasticsearch + nori** (적용 중) |
+| Message Broker | Redis Stream |
 | Data Access | Spring Data JPA, QueryDSL |
 | Cloud | AWS ECS (Fargate), ECR, RDS, ElastiCache, S3, ALB |
-| Monitoring | **Datadog** (연동 중) |
+| Load Test | k6 (WebSocket), xk6-sse (SSE) |
 | Resilience | Resilience4j (Circuit Breaker), ShedLock |
 | CI/CD | GitHub Actions |
 | Code Quality | SonarQube (SonarCloud) |
@@ -307,12 +303,6 @@ docker-compose up -d
 
 # 애플리케이션 실행
 ./gradlew bootRun
-```
-
-### 모니터링 실행 (선택)
-
-```bash
-docker-compose -f docker-compose-monitoring.yml up -d
 ```
 
 ---
