@@ -124,6 +124,11 @@ User A (Server 1) → DM 전송
 **원인**: 재현을 반복하며 로그를 추적한 결과, 미수신 유저는 매번 짧은 간격을 두고 같은 계정으로 두 번 연결하고 있었습니다. `configEmitter()`의 `onCompletion` 콜백이 인스턴스 구분 없이 userId 키로만 registry를 삭제하는 구조라, 재연결 시 옛 연결의 완료 콜백이 비동기로 지연 실행되면서 방금 등록된 새 연결까지 지워버리는 문제였습니다. 별도 에러 로그도 남지 않아 원인 추적이 까다로웠습니다. 브라우저 탭 여러 개, 새로고침 직후 재연결 등 실서비스에서도 충분히 발생 가능한 시나리오입니다.
 
 ```java
+// 수정 전
+emitter.onCompletion(() -> {
+    sseEmitterRepository.deleteById(userId);
+});
+
 // 수정 후
 emitter.onCompletion(() -> {
     SseEmitter current = sseEmitterRepository.findById(userId);
