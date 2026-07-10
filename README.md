@@ -170,7 +170,7 @@ k6·PostgreSQL EXPLAIN ANALYZE·Spring Batch 메타테이블로 실시간 파이
 - PgBouncer 등 커넥션 풀러 도입 — HikariCP 풀 재포화 임계점(동시 쓰기 500건) 자체를 높이는 방향
 - DM 저장 로직의 DB 왕복 횟수(4~5회) 축소
 - 백프레셔 도입 — 처리 슬롯 216개 근접 시 신규 요청 조기 거절
-- Redis Stream 발행을 DB 저장보다 선행시키는 Write-Ahead 구조 검토
+- Redis Stream 기반 전송·비동기 영속화 분리 구조 검토
 - 위 개선 이후 커넥션 풀/스레드 수 재조정
 
 ---
