@@ -154,7 +154,7 @@ k6·PostgreSQL EXPLAIN ANALYZE·Spring Batch 메타테이블로 실시간 파이
 | Spring Batch 처리량 | 알림 정리 배치 45,552건/52초(약 870 rows/sec) |
 | SSE 배치 알림 팬아웃 (500명) | 325/325 전원 수신, 오발송 0건, p95 약 420ms |
 
-각 측정이 정확히 어느 구간을 재는지는 [개발 리포트 Notion](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)의 성능 측정 범위 정리 페이지에서 파이프라인 다이어그램과 함께 확인할 수 있습니다.
+각 측정이 정확히 어느 구간을 재는지는 [개발 리포트 Notion](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)의 [성능 측정 범위 정리](https://app.notion.com/p/398d0c65baa980aca0bdec20cfb56c8e) 페이지에서 파이프라인 다이어그램과 함께 확인할 수 있습니다.
 
 ---
 
