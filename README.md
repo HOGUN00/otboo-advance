@@ -168,13 +168,6 @@ k6·PostgreSQL EXPLAIN ANALYZE·Spring Batch 메타테이블로 실시간 파이
 - Redis Stream 발행을 DB 저장보다 선행시키는 Write-Ahead 구조 검토
 - 위 개선 이후 커넥션 풀/스레드 수 재조정
 
-**기타 아이디어 (미착수)**
-- Redis Stream → Kafka 전환 검토 (PEL 수동 관리 비용, SPOF 리스크 고려)
-- Elasticsearch 도입 검토 (의상/피드 검색 성능)
-- Datadog 연동 (현재는 k6 + 스레드 덤프로 병목 분석 대체)
-- 서킷브레이커 상태 변경 시 Slack/이메일 알림
-- 배치를 앱 서버에서 분리해 Jenkins 전용 배치 서버로 실행
-
 ---
 
 ## ✅ 코드 품질 관리
