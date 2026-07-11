@@ -130,12 +130,7 @@ emitter.onCompletion(() -> {
 });
 
 // 수정 후
-emitter.onCompletion(() -> {
-    SseEmitter current = sseEmitterRepository.findById(userId);
-    if (current == emitter) {
-        sseEmitterRepository.deleteById(userId);
-    }
-});
+emitter.onCompletion(() -> sseEmitterRepository.deleteIfMatches(userId, emitter));
 ```
 
 **결과**: 키가 아닌 인스턴스 비교로 삭제하도록 수정. 재연결을 의도적으로 유도하는 재현 시나리오로 수정 전(유실)/후(정상 수신)를 직접 검증했습니다.
