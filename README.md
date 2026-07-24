@@ -1,7 +1,7 @@
 # 🧥 옷장을 부탁해 (Otboo)
 
 > 날씨·취향 기반 의상 조합 추천 + OOTD 피드 소셜 서비스  
-> 팀 프로젝트 포크 후 개인적으로 아키텍처 개선 및 기능 고도화 진행 중
+> 팀 프로젝트 종료 후 성능 검증을 통해 오류와 병목을 발견·수정하고, 구조적 개선 방향을 도출한 개인 고도화 포크
 
 [![Java](https://img.shields.io/badge/Java-17-orange)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-green)](https://spring.io/projects/spring-boot)
@@ -10,9 +10,10 @@
 🔍 [SonarQube](https://sonarcloud.io/project/overview?id=codeit-team2-advanced-project_sb06-otboo-team2) &nbsp;|&nbsp;
 🗒️ [개발 리포트 Notion](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)
 
-> 원본 프로젝트: [codeit-team2-advanced-project/sb06-otboo-team2](https://github.com/codeit-team2-advanced-project/sb06-otboo-team2) (5인 팀 프로젝트, 2026.01.22 ~ 02.27)  
-> 본 저장소는 개인 아키텍처 개선 및 기술 고도화를 목적으로 포크한 버전입니다.
-
+> 원본 프로젝트: [codeit-team2-advanced-project/sb06-otboo-team2](https://github.com/codeit-team2-advanced-project/sb06-otboo-team2)  
+> 5인 팀 프로젝트, 2026.01.22 ~ 02.27  
+> 팀 프로젝트에서 실시간 DM·알림 시스템을 담당하여 WebSocket, SSE, Redis Stream, Spring Batch 등을 구현했습니다.  
+> 프로젝트 종료 후 개인 포크에서 기존 구현을 대상으로 부하 테스트와 성능 측정을 진행하고, 발견한 오류와 병목을 수정·분석했습니다.
 ---
 
 ## 📌 목차
