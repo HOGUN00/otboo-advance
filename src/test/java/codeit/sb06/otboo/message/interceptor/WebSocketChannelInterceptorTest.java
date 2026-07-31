@@ -19,6 +19,9 @@ import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.messaging.support.MessageHeaderAccessor;
+
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -46,15 +49,24 @@ class WebSocketChannelInterceptorTest {
         // given
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
         accessor.addNativeHeader("Authorization", "Bearer dummyAccessToken");
+        accessor.setLeaveMutable(true);
         Message<byte[]> message = MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
+
+        UUID userId = UUID.randomUUID();
         given(jwtTokenProvider.validateAccessToken(anyString())).willReturn(true);
         given(jwtRegistry.hasActiveJwtInformationByAccessToken(anyString())).willReturn(true);
+        given(jwtTokenProvider.getUserId(anyString())).willReturn(userId);
 
         // when
         Message<?> result = webSocketChannelInterceptor.preSend(message, channel);
 
         // then
+        StompHeaderAccessor resultAccessor =
+                MessageHeaderAccessor.getAccessor(result, StompHeaderAccessor.class);
         assertThat(result).isNotNull();
+        assertThat(resultAccessor).isNotNull();
+        assertThat(resultAccessor.getUser()).isNotNull();
+        assertThat(resultAccessor.getUser().getName()).isEqualTo(userId.toString());
     }
 
     @Test

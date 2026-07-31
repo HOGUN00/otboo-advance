@@ -16,6 +16,8 @@ import org.springframework.messaging.support.MessageHeaderAccessor;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.util.UUID;
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -36,17 +38,25 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
         StompCommand command = accessor.getCommand();
         if (StompCommand.CONNECT.equals(command)) {
             String bearerToken = accessor.getFirstNativeHeader("Authorization");
-            if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
-                String jwtToken = bearerToken.substring(7);
-                if (!jwtTokenProvider.validateAccessToken(jwtToken)) {
-                    throw new InvalidTokenException();
-                }
-                if (!jwtRegistry.hasActiveJwtInformationByAccessToken(jwtToken)) {
-                    throw new InvalidTokenException();
-                }
-            } else {
+
+            if (!StringUtils.hasText(bearerToken)
+                    || !bearerToken.startsWith("Bearer ")) {
                 throw new InvalidTokenException();
             }
+
+            String jwtToken = bearerToken.substring(7);
+
+            if (!jwtTokenProvider.validateAccessToken(jwtToken)
+                    || !jwtRegistry.hasActiveJwtInformationByAccessToken(jwtToken)) {
+                throw new InvalidTokenException();
+            }
+
+            UUID userId = jwtTokenProvider.getUserId(jwtToken);
+            if (userId == null) {
+                throw new InvalidTokenException();
+            }
+
+            accessor.setUser(() -> userId.toString());
         }
 
         return message;

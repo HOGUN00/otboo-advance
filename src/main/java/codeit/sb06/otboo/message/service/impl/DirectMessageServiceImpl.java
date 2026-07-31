@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,14 +42,18 @@ public class DirectMessageServiceImpl implements DirectMessageService {
     private final DirectMessageEventPublisher dmEventPublisher;
 
     @Override
-    public DirectMessageDto create(DirectMessageCreateRequest request) {
+    public DirectMessageDto create(UUID authenticatedSenderId, DirectMessageCreateRequest request) {
 
-        User sender = userRepository.findById(request.senderId())
+        if (!authenticatedSenderId.equals(request.senderId())) {
+            throw new AccessDeniedException("발신자 정보가 일치하지 않습니다.");
+        }
+
+        User sender = userRepository.findById(authenticatedSenderId)
                 .orElseThrow(UserNotFoundException::new);
         User receiver = userRepository.findById(request.receiverId())
                 .orElseThrow(UserNotFoundException::new);
 
-        ChatRoom chatRoom = chatRoomService.getOrCreatePrivateRoom(request.senderId(), request.receiverId());
+        ChatRoom chatRoom = chatRoomService.getOrCreatePrivateRoom(authenticatedSenderId, request.receiverId());
 
         DirectMessage dm = DirectMessage.builder()
                 .sender(sender)
@@ -66,7 +71,7 @@ public class DirectMessageServiceImpl implements DirectMessageService {
                 request.content());
 
         DirectMessageDto dto = directMessageMapper.toDto(saved, receiver);
-        String dmKey = ChatRoom.generateDmKey(request.senderId(), request.receiverId());
+        String dmKey = ChatRoom.generateDmKey(authenticatedSenderId, request.receiverId());
         String destination = "/sub/direct-messages_" + dmKey;
 
         dmEventPublisher.publishDirectMessageCreatedEvent(

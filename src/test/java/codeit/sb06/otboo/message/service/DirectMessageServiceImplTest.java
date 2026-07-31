@@ -83,7 +83,8 @@ class DirectMessageServiceImplTest {
                 .willAnswer(invocation -> invocation.getArgument(0));
 
         // when
-        DirectMessageDto dmDto = directMessageService.create(request);
+        UUID authenticatedSenderId = request.senderId();
+        DirectMessageDto dmDto = directMessageService.create(authenticatedSenderId, request);
 
         // then
         assertAll(
