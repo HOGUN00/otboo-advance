@@ -30,4 +30,8 @@ public class SseEmitterRepository {
     public void deleteById(UUID userId) {
         emitterMap.remove(userId);
     }
+
+    public boolean deleteIfMatches(UUID userId, SseEmitter emitter) {
+        return emitterMap.remove(userId, emitter);
+    }
 }

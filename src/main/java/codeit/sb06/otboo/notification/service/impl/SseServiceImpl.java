@@ -29,7 +29,7 @@ public class SseServiceImpl implements SseService {
         SseEmitter oldEmitter = sseEmitterRepository.findById(userId);
         if (oldEmitter != null) {
             oldEmitter.complete();
-            sseEmitterRepository.deleteById(userId);
+            sseEmitterRepository.deleteIfMatches(userId, oldEmitter);
         }
 
         SseEmitter emitter = new SseEmitter(TIMEOUT);
@@ -81,15 +81,15 @@ public class SseServiceImpl implements SseService {
             log.debug("SSE Event Sent. [userId={}, eventId={}, eventName={}, data={}]",
                     userId, event.id(), event.name(), event.data());
         } catch (IOException e) {
-            sseEmitterRepository.deleteById(userId);
+            sseEmitterRepository.deleteIfMatches(userId, emitter);
         }
     }
 
     private void configEmitter(SseEmitter emitter, UUID userId) {
 
-        emitter.onCompletion(() -> sseEmitterRepository.deleteById(userId));
+        emitter.onCompletion(() -> sseEmitterRepository.deleteIfMatches(userId, emitter));
         emitter.onTimeout(() -> {
-            sseEmitterRepository.deleteById(userId);
+            sseEmitterRepository.deleteIfMatches(userId, emitter);
             log.error("SSE Emitter Timeout. [userId={}]", userId);
         });
         emitter.onError(e -> {

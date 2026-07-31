@@ -26,7 +26,7 @@ public class SseHeartbeatScheduler {
                 emitter.send(SseEmitter.event().name("ping").data("heartbeat"));
             } catch (Exception e) {
                 emitter.complete();
-                sseEmitterRepository.deleteById(entry.getKey());
+                sseEmitterRepository.deleteIfMatches(entry.getKey(), emitter);
             }
         }
     }

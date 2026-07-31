@@ -87,7 +87,7 @@ class SseServiceTest {
 
         // then
         assertThat(newEmitter).isNotNull();
-        verify(sseEmitterRepository, times(1)).deleteById(userId);
+        verify(sseEmitterRepository, times(1)).deleteIfMatches(userId, existingEmitter);
     }
 
     @Test

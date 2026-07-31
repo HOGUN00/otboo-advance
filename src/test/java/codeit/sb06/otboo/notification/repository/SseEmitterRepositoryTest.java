@@ -46,4 +46,36 @@ class SseEmitterRepositoryTest {
         // then
         assertThat(sseEmitterRepository.findById(userId)).isNull();
     }
+
+    @Test
+    @DisplayName("현재 저장된 SseEmitter와 일치할 때만 삭제할 수 있다.")
+    void deleteIfMatchesTest() {
+        // given
+        SseEmitter emitter = new SseEmitter();
+        sseEmitterRepository.save(userId, emitter);
+
+        // when
+        boolean deleted = sseEmitterRepository.deleteIfMatches(userId, emitter);
+
+        // then
+        assertThat(deleted).isTrue();
+        assertThat(sseEmitterRepository.findById(userId)).isNull();
+    }
+
+    @Test
+    @DisplayName("이전 SseEmitter의 콜백은 새 SseEmitter를 삭제하지 않는다.")
+    void deleteIfMatchesDoesNotDeleteReplacedEmitterTest() {
+        // given
+        SseEmitter oldEmitter = new SseEmitter();
+        SseEmitter newEmitter = new SseEmitter();
+        sseEmitterRepository.save(userId, oldEmitter);
+        sseEmitterRepository.save(userId, newEmitter);
+
+        // when
+        boolean deleted = sseEmitterRepository.deleteIfMatches(userId, oldEmitter);
+
+        // then
+        assertThat(deleted).isFalse();
+        assertThat(sseEmitterRepository.findById(userId)).isSameAs(newEmitter);
+    }
 }

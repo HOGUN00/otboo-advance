@@ -40,7 +40,7 @@ class SseHeartbeatSchedulerTest {
         // then
         verify(successEmitter, times(1)).send(any(SseEmitter.SseEventBuilder.class));
         verify(successEmitter, never()).complete();
-        verify(sseEmitterRepository, never()).deleteById(any());
+        verify(sseEmitterRepository, never()).deleteIfMatches(any(), any());
     }
 
     @Test
@@ -61,6 +61,6 @@ class SseHeartbeatSchedulerTest {
         // then
         verify(failEmitter, times(1)).send(any(SseEmitter.SseEventBuilder.class));
         verify(failEmitter, times(1)).complete();
-        verify(sseEmitterRepository, times(1)).deleteById(emitterId);
+        verify(sseEmitterRepository, times(1)).deleteIfMatches(emitterId, failEmitter);
     }
 }
