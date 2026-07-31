@@ -131,7 +131,7 @@ resilience4j:
     instances:
       dmStreamCircuit:
         baseConfig: default
-      notiStreamCircuit:
+      notificationStreamCircuit:
         baseConfig: default
       openWeatherApi:
         baseConfig: default
