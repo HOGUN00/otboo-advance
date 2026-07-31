@@ -125,16 +125,14 @@ public class JwtTokenProvider {
         }
     }
 
-    public UUID getUserId(String token){
-        try{
+    public UUID getUserId(String token) {
+        try {
             SignedJWT signedJWT = SignedJWT.parse(token);
-            String userIdStr = (String) signedJWT.getJWTClaimsSet().getClaim("userId");
-            if(userIdStr == null){
-                throw new IllegalArgumentException("JWT claims set is null");
-            }
-            return UUID.fromString(userIdStr);
-        } catch (ParseException e) {
-            log.debug("Failed to parse JWT token: {}", e.getMessage());
+            String userId = signedJWT.getJWTClaimsSet().getStringClaim("userId");
+
+            return userId == null ? null : UUID.fromString(userId);
+        } catch (ParseException | IllegalArgumentException e) {
+            log.debug("Failed to extract user ID from JWT: {}", e.getMessage());
             return null;
         }
     }
