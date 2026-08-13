@@ -7,7 +7,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-green)](https://spring.io/projects/spring-boot)
 
 🎬 [팀 프로젝트 시연 영상](https://drive.google.com/file/d/15Aw6SN9HEt85HFxmfV5XhMdY0WsPqMJM/view)  | 
-🔍 [팀 프로젝트 SonarCloud](https://sonarcloud.io/project/overview?id=codeit-team2-advanced-project_sb06-otboo-team2)  | 
+🔍 [팀 프로젝트 SonarQube Cloud](https://sonarcloud.io/project/overview?id=codeit-team2-advanced-project_sb06-otboo-team2)  | 
 🗒️ [개발 리포트](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)
 
 > 원본 프로젝트: [codeit-team2-advanced-project/sb06-otboo-team2](https://github.com/codeit-team2-advanced-project/sb06-otboo-team2) \
@@ -108,7 +108,7 @@ User A (Server 1) → DM 전송
 
 **분석**: 3,000 VU 이후 서버가 일시 무응답에 빠졌을 때 처리 스레드 216개(Tomcat 200 + WebSocket inbound 16)가 모두 `HikariPool.getConnection()`에서 대기 중이었습니다. 이를 통해 DB 커넥션 대기로 처리 슬롯이 점유된 상태가 핵심 병목임을 확인했습니다.
 
-**대응 및 판단**: 풀 크기를 50으로 확장한 뒤 50 VU 재검증에서는 타임아웃이 해소됐지만, 500 VU 단계에서 다시 포화됐습니다. 500 VU 단계에서 다시 포화됐습니다. 풀 크기 조정은 임계점을 늦출 뿐 근본 해결은 아니라고 판단했으며, DM 저장 로직의 DB 왕복 횟수 축소와 Redis Streams 기반 전송·비동기 영속화 분리, 백프레셔 도입을 후속 개선 방향으로 도출했습니다.
+**대응 및 판단**: 풀 크기를 50으로 확장한 뒤 50 VU 재검증에서는 타임아웃이 해소됐지만, 500 VU 단계에서 다시 포화됐습니다. 풀 크기 조정은 임계점을 늦출 뿐 근본 해결은 아니라고 판단했으며, DM 저장 로직의 DB 왕복 횟수 축소와 Redis Streams 기반 전송·비동기 영속화 분리, 백프레셔 도입을 후속 개선 방향으로 도출했습니다.
 
 구체적인 개선 방향은 [개발 리포트의 향후 개선 사항](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980ca8a29dd399e801b2d)에 정리했습니다.
 
@@ -154,14 +154,14 @@ k6·PostgreSQL `EXPLAIN ANALYZE`·Spring Batch 메타테이블·서버 스레드
 
 ## ✅ 코드 품질 관리
 
-SonarCloud (SonarQube 기반)를 GitHub Actions와 연동하여 PR 단위로 품질을 자동 검증했습니다.
+SonarQube를 GitHub Actions와 연동하여 PR 단위로 품질을 자동 검증했습니다.
 
 * **테스트 커버리지 80% 이상** 강제(DTO, config 제외)
 * 코드 스멜·보안 취약점 자동 검출
 * 빌드 + 테스트 통과를 Merge 조건으로 설정
-* 코드 리뷰는 기계적 검증은 SonarCloud에 맡기고, **도메인 로직 정합성과 설계 개선 제안**에 집중
+* 코드 리뷰에서는 기계적 검증을 SonarQube에 맡기고, **도메인 로직 정합성과 설계 개선 제안**에 집중
 
-🔗 [SonarCloud 대시보드](https://sonarcloud.io/project/overview?id=codeit-team2-advanced-project_sb06-otboo-team2)
+🔗 [SonarQube 대시보드](https://sonarcloud.io/project/overview?id=codeit-team2-advanced-project_sb06-otboo-team2)
 
 ---
 
@@ -178,7 +178,7 @@ SonarCloud (SonarQube 기반)를 GitHub Actions와 연동하여 PR 단위로 품
 | Load Test      | k6 (WebSocket), xk6-sse (SSE)                     |
 | Resilience     | Resilience4j (Circuit Breaker), ShedLock          |
 | CI/CD          | GitHub Actions                                    |
-| Code Quality   | SonarCloud                        |
+| Code Quality   | SonarQube Cloud                        |
 | API Docs       | Swagger (Springdoc)                               |
 | Test           | EasyRandom                                        |
 
