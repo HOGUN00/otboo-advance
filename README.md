@@ -178,7 +178,7 @@ SonarCloud (SonarQube 기반)를 GitHub Actions와 연동하여 PR 단위로 품
 | Load Test      | k6 (WebSocket), xk6-sse (SSE)                     |
 | Resilience     | Resilience4j (Circuit Breaker), ShedLock          |
 | CI/CD          | GitHub Actions                                    |
-| Code Quality   | SonarCloud (SonarQube 기반)                         |
+| Code Quality   | SonarCloud                        |
 | API Docs       | Swagger (Springdoc)                               |
 | Test           | EasyRandom                                        |
 
