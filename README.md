@@ -97,7 +97,7 @@ SonarQube를 GitHub Actions와 연동하여 PR 단위로 품질을 자동 검증
 | 분류             | 기술                                                |
 | -------------- | ------------------------------------------------- |
 | Language       | Java 17                                           |
-| Framework      | Spring Boot 3.x, Spring Security, Spring Batch    |
+| Framework      | Spring Boot 3.5.10, Spring Security, Spring Batch    |
 | Database       | PostgreSQL, Redis                                 |
 | Message Broker | Redis Streams                                     |
 | Data Access    | Spring Data JPA, QueryDSL                         |
