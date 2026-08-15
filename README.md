@@ -20,7 +20,8 @@
 
 ## 🏗️ 시스템 아키텍처
 
-> 이미지
+> <img width="1800" height="1125" alt="otboo-architecture" src="https://github.com/user-attachments/assets/5994d221-7de7-4a61-88fc-431e95684506" />
+
 
 ---
 
