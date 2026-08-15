@@ -56,7 +56,7 @@
 
 - [WebSocket·SSE 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bd203c86c59804aa7fdc24fc9e63cdf): DM은 양방향 WebSocket, 알림은 단방향 SSE로 분리 → 기능별 통신 방향에 맞는 실시간 채널 구성
 - [다중 서버 실시간 메시징](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14): 서버별 로컬 연결로 다른 서버의 사용자에게 DM·알림을 전달할 수 없음 → Redis Streams로 메시지를 공유하고 해당 사용자가 연결된 서버에서 최종 전송
-- [Redis Streams 선택](https://app.notion.com/p/bbcd0c65baa98258b451014273edfb07?source=copy_link#3bbd0c65baa98014927cfd2bca35c5e0): Consumer의 처리 확인과 실패 메시지 재처리가 가능한 브로커 비교 → 기존 Redis와 ACK·PEL을 활용할 수 있는 Redis Streams 선택 → 추적·재처리 범위와 운영 한계 확인
+- [Redis Streams 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f4ae68c13faaa6d41d): Consumer의 처리 확인과 실패 메시지 재처리가 가능한 브로커 비교 → 기존 Redis와 ACK·PEL을 활용할 수 있는 Redis Streams 선택 → 추적·재처리 범위와 운영 한계 확인
 - [실패 메시지 재처리 및 Redis 장애 대응](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f0b479f9c41a95c359): ACK되지 않은 메시지가 PEL에 잔류 → 재처리 스케줄러 구현 → Redis 반복 장애가 애플리케이션으로 전파되지 않도록 Circuit Breaker 적용
 - [배치 중복 실행 방지](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598010b3bef72b942d1eee): 다중 서버에서 동일한 스케줄러가 중복 실행될 가능성 → ShedLock 적용 → 동일한 실행 시점에는 여러 서버 중 하나만 배치를 실행하도록 제어
 
