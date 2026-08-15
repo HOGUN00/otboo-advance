@@ -54,21 +54,22 @@
 
 ### 팀 프로젝트 구현
 
-* [다중 서버 실시간 메시징](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14): 양방향 DM은 WebSocket, 단방향 알림은 SSE로 구현 → 사용자 연결 정보가 서버마다 따로 관리돼 다른 서버에 연결된 사용자에게 메시지를 전달할 수 없음 → Redis Streams로 메시지를 공유하고, 해당 사용자가 연결된 서버에서 최종 전송
-* [Redis Streams 선택](https://app.notion.com/p/bbcd0c65baa98258b451014273edfb07?source=copy_link#3bbd0c65baa98014927cfd2bca35c5e0): Consumer의 처리 완료를 확인하고 실패 메시지를 재처리할 수 있는 브로커 비교 → 기존 Redis와 ACK·PEL을 활용할 수 있는 Redis Streams 선택 → 재처리 범위와 운영 한계 확인
-* [Redis 장애 대응](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f0b479f9c41a95c359): PEL 재처리 스케줄러가 Redis 장애 중에도 호출을 반복 → 애플리케이션으로 장애가 전파될 가능성 확인 → Resilience4j Circuit Breaker 적용
-* [배치 중복 실행 방지](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598010b3bef72b942d1eee): 다중 서버에서 동일한 스케줄러가 중복 실행될 가능성 → ShedLock 적용 → 동일한 실행 시점에는 여러 서버 중 하나만 배치를 실행하도록 제어
+- [WebSocket·SSE 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bd203c86c59804aa7fdc24fc9e63cdf): DM은 양방향 WebSocket, 알림은 단방향 SSE로 분리 → 기능별 통신 방향에 맞는 실시간 채널 구성
+- [다중 서버 실시간 메시징](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14): 서버별 로컬 연결로 다른 서버의 사용자에게 DM·알림을 전달할 수 없음 → Redis Streams로 메시지를 공유하고 해당 사용자가 연결된 서버에서 최종 전송
+- [Redis Streams 선택](https://app.notion.com/p/bbcd0c65baa98258b451014273edfb07?source=copy_link#3bbd0c65baa98014927cfd2bca35c5e0): Consumer의 처리 확인과 실패 메시지 재처리가 가능한 브로커 비교 → 기존 Redis와 ACK·PEL을 활용할 수 있는 Redis Streams 선택 → 추적·재처리 범위와 운영 한계 확인
+- [실패 메시지 재처리 및 Redis 장애 대응](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f0b479f9c41a95c359): ACK되지 않은 메시지가 PEL에 잔류 → 재처리 스케줄러 구현 → Redis 반복 장애가 애플리케이션으로 전파되지 않도록 Circuit Breaker 적용
+- [배치 중복 실행 방지](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598010b3bef72b942d1eee): 다중 서버에서 동일한 스케줄러가 중복 실행될 가능성 → ShedLock 적용 → 동일한 실행 시점에는 여러 서버 중 하나만 배치를 실행하도록 제어
 
 ### 개인 고도화 및 검증
 
-* [통계 쿼리 성능 검증](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f7825edf754e325ece): 다중 LEFT JOIN의 카테시안 곱을 피하려고 스칼라 서브쿼리 적용 → 규모별 `EXPLAIN ANALYZE` 비교 → 데이터 규모와 JIT 설정에 따라 우위가 달라짐을 확인
-* [배치 삭제 검증 공백](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): 성능 측정 중 실제 삭제가 수행되지 않는 문제 발견 → Writer를 `merge()`에서 `remove()`로 수정 → 실행 전후 DB 상태를 비교해 45,552건 삭제 검증
-* [DM DB 커넥션 풀 병목](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): 부하 증가에 따라 메시지 타임아웃 급증 → 스레드 덤프에서 216개 처리 스레드의 DB 커넥션 대기 확인 → 풀 확대의 한계와 DB 왕복 축소·백프레셔 방향 도출
-* [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
+- [통계 쿼리 성능 검증](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f7825edf754e325ece): 다중 LEFT JOIN의 카테시안 곱을 피하려고 스칼라 서브쿼리 적용 → 규모별 `EXPLAIN ANALYZE` 비교 → 데이터 규모와 JIT 설정에 따라 우위가 달라짐을 확인
+- [배치 삭제 검증 공백](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): 성능 측정 중 실제 삭제가 수행되지 않는 문제 발견 → Writer를 `merge()`에서 `remove()`로 수정 → 실행 전후 DB 상태를 비교해 45,552건 삭제 검증
+- [DM DB 커넥션 풀 병목](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): 부하 증가에 따라 메시지 타임아웃 급증 → 스레드 덤프에서 216개 처리 스레드의 DB 커넥션 대기 확인 → 풀 확대의 한계와 DB 왕복 축소·백프레셔 방향 도출
+- [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
 
 ### 운영상 한계와 확장 기준
 
-* [Redis Streams 운영 정책과 확장 기준](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598017982dcba928aaf4d0): PEL claim·재시도·실패 메시지 격리 정책을 애플리케이션에서 관리 → 현재 규모에서는 기존 Redis를 활용하는 비용을 감당할 수 있다고 판단 → 처리량·장기 보관·과거 구간 재처리·파티션 확장 요구가 커지면 Kafka 검토
+- [Redis Streams 운영 정책과 확장 기준](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598017982dcba928aaf4d0): PEL 재처리 스케줄러 구현 → claim·재시도·실패 메시지 격리 기준은 운영 과제로 남음 → 현재 규모에서는 Redis를 유지하고, 장기 보관·과거 재처리·파티션 확장 요구가 커지면 Kafka 검토
 
 ---
 
