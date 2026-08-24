@@ -53,7 +53,7 @@
 ### 개인 고도화 및 검증
 
 - [통계 쿼리 성능 검증](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f7825edf754e325ece): 다중 LEFT JOIN의 중간 결과 증가를 피하려고 스칼라 서브쿼리 적용 → 규모별 `EXPLAIN ANALYZE` 비교 → 데이터 규모와 PostgreSQL 설정에 따라 결과가 달라질 수 있음을 확인
-- [배치 삭제 검증 공백](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): 성능 측정 중 실제 삭제가 수행되지 않는 문제 발견 → Writer를 `merge()`에서 `remove()`로 수정 → 실행 전후 DB 상태를 비교해 45,552건 삭제 검증
+- [배치 삭제 검증 공백](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): 성능 측정 중 Job은 완료됐지만 실제 삭제가 수행되지 않는 문제 발견 → Writer의 삭제 로직 수정 → 실행 전후 DB 상태와 처리 건수를 교차 확인해 45,552건 삭제 검증
 - [DM DB 커넥션 풀 병목](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): 부하 증가에 따라 메시지 타임아웃 급증 → 스레드 덤프에서 처리 스레드의 DB 커넥션 대기 확인 → 풀 확대의 한계와 DB 왕복 축소·처리량 제어 방향 도출
 - [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
 
