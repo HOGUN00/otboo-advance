@@ -71,7 +71,7 @@ k6·PostgreSQL `EXPLAIN ANALYZE`·Spring Batch 메타테이블·서버 스레드
 | Spring Batch 삭제 검증 | 알림 정리 배치 45,552건을 52초에 삭제하고 실행 전후 DB 상태와 Batch 메타데이터를 교차 검증 |
 | SSE 배치 알림 팬아웃 | 500 VU 조건에서 발송 대상 325/325 수신, 비대상 오발송 0건 |
 
-> 📐 각 수치의 측정 구간과 파이프라인 간 관계는 [성능 측정 범위 정리](https://app.notion.com/p/398d0c65baa980aca0bdec20cfb56c8e)에서 확인할 수 있습니다.
+> 📐 각 수치의 측정 구간과 파이프라인 간 관계는 [성능 측정 범위 정리](https://app.notion.com/p/3c6203c86c5980728926d20a6576963a?source=copy_link)에서 확인할 수 있습니다.
 
 ---
 
