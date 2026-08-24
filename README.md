@@ -52,14 +52,10 @@
 
 ### 개인 고도화 및 검증
 
-- [통계 쿼리 성능 검증](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f7825edf754e325ece): 다중 LEFT JOIN의 카테시안 곱을 피하려고 스칼라 서브쿼리 적용 → 규모별 `EXPLAIN ANALYZE` 비교 → 데이터 규모와 JIT 설정에 따라 우위가 달라짐을 확인
+- [통계 쿼리 성능 검증](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f7825edf754e325ece): 다중 LEFT JOIN의 중간 결과 증가를 피하려고 스칼라 서브쿼리 적용 → 규모별 `EXPLAIN ANALYZE` 비교 → 데이터 규모와 PostgreSQL 설정에 따라 결과가 달라질 수 있음을 확인
 - [배치 삭제 검증 공백](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): 성능 측정 중 실제 삭제가 수행되지 않는 문제 발견 → Writer를 `merge()`에서 `remove()`로 수정 → 실행 전후 DB 상태를 비교해 45,552건 삭제 검증
-- [DM DB 커넥션 풀 병목](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): 부하 증가에 따라 메시지 타임아웃 급증 → 스레드 덤프에서 216개 처리 스레드의 DB 커넥션 대기 확인 → 풀 확대의 한계와 DB 왕복 축소·백프레셔 방향 도출
+- [DM DB 커넥션 풀 병목](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): 부하 증가에 따라 메시지 타임아웃 급증 → 스레드 덤프에서 처리 스레드의 DB 커넥션 대기 확인 → 풀 확대의 한계와 DB 왕복 축소·처리량 제어 방향 도출
 - [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
-
-### 운영상 한계와 확장 기준
-
-- [Redis Streams 운영 정책과 확장 기준](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598017982dcba928aaf4d0): PEL 재처리 스케줄러 구현 → claim·재시도·실패 메시지 격리 기준은 운영 과제로 남음 → 현재 규모에서는 Redis를 유지하고, 장기 보관·과거 재처리·파티션 확장 요구가 커지면 Kafka 검토
 
 ---
 
@@ -67,13 +63,13 @@
 
 k6·PostgreSQL `EXPLAIN ANALYZE`·Spring Batch 메타테이블·서버 스레드 덤프로 실시간 파이프라인과 배치를 계층별(쿼리 → 배치 → 파이프라인 → 인프라)로 나눠 실측했습니다.
 
-| 측정 항목                             | 결과                                                                        |
-| --------------------------------- | ------------------------------------------------------------------------- |
-| WebSocket DM 부하테스트 (500~5,000 VU) | 메시지 타임아웃 비율 15.5%→95.9%, 성공 메시지 p95 54~148ms → HikariCP 커넥션 풀이 1차 병목임을 확인 |
-| Redis Streams Consumer 순수 처리량     | 약 6,300 msg/sec (서비스 경로에서 관측한 순간 최대 312 msg/sec 대비 약 20배)                 |
-| 카테시안 곱 쿼리 벤치마크                    | 이번 데이터 분포·인덱스 조건에서는 N=1,000부터 스칼라 서브쿼리가 우세했으며, N=5,000 결과는 JIT 설정에 따라 달라짐 |
-| Spring Batch 처리량                  | 알림 정리 배치 45,552건/52초(약 870 rows/sec)                                      |
-| SSE 배치 알림 팬아웃 (500 VU)            | 발송 대상 325/325 전원 수신, 비대상 오발송 0건, p95 약 420ms                              |
+| 측정 항목 | 결과 |
+|-----------|------|
+| WebSocket DM 부하테스트 | 부하 증가에 따라 메시지 타임아웃이 급증했고, 스레드 덤프를 통해 HikariCP 커넥션 대기를 1차 병목으로 확인 |
+| Redis Streams Consumer 직접 측정 | 앱·DB 경로를 우회한 조건에서 단일 Consumer 약 6,300 msg/sec |
+| 통계 쿼리 비교 | 소규모에서는 LEFT JOIN이 유리했지만 데이터 증가 후 스칼라 서브쿼리가 유리해지는 구간을 확인했으며, PostgreSQL 설정에 따라 결과가 달라질 수 있었음 |
+| Spring Batch 삭제 검증 | 알림 정리 배치 45,552건을 52초에 삭제하고 실행 전후 DB 상태와 Batch 메타데이터를 교차 검증 |
+| SSE 배치 알림 팬아웃 | 500 VU 조건에서 발송 대상 325/325 수신, 비대상 오발송 0건 |
 
 > 📐 각 수치의 측정 구간과 파이프라인 간 관계는 [성능 측정 범위 정리](https://app.notion.com/p/398d0c65baa980aca0bdec20cfb56c8e)에서 확인할 수 있습니다.
 
