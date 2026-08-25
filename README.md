@@ -7,7 +7,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-green)](https://spring.io/projects/spring-boot)
 
 🎬 [팀 프로젝트 시연 영상](https://drive.google.com/file/d/15Aw6SN9HEt85HFxmfV5XhMdY0WsPqMJM/view)  | 
-🗒️ [개발 리포트](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)
+🗒️ [개발 리포트](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)  |
 🔍 [팀 프로젝트 SonarQube Cloud](https://sonarcloud.io/project/overview?id=codeit-team2-advanced-project_sb06-otboo-team2)  | 
 
 
