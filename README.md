@@ -32,7 +32,7 @@
 | ---------- | ---------------------------- | ------------------------ |
 | 실시간 1:1 DM | WebSocket + Redis Streams    | 다중 서버 환경 세션 불일치 해결       |
 | 실시간 알림     | SSE + Redis Streams          | 단방향 알림, 재연결 시 미수신 이벤트 보정 |
-| 대용량 알림 통계  | Spring Batch + ShedLock      | 통계 쿼리 설계, 분산 중복 실행 방지    |
+| 대용량 알림 통계  | Spring Batch + ShedLock      | 알림 통계 배치, 다중 서버 중복 실행 방지    |
 | 장애 대응      | Resilience4j Circuit Breaker | Redis 장애 전파 차단           |
 
 ---
