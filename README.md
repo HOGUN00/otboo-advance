@@ -44,34 +44,23 @@
 
 ### 팀 프로젝트 구현
 
-- [WebSocket·SSE 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bd203c86c59804aa7fdc24fc9e63cdf): DM은 양방향 WebSocket, 알림은 단방향 SSE로 분리 → 기능별 통신 방향에 맞는 실시간 채널 구성
 - [다중 서버 실시간 메시징](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14): 서버별 로컬 연결로 다른 서버의 사용자에게 DM·알림을 전달할 수 없음 → Redis Streams로 메시지를 공유하고 해당 사용자가 연결된 서버에서 최종 전송
-- [Redis Streams 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f4ae68c13faaa6d41d): Consumer의 처리 확인과 실패 메시지 재처리가 가능한 브로커 비교 → 기존 Redis와 ACK·PEL을 활용할 수 있는 Redis Streams 선택 → 추적·재처리 범위와 운영 한계 확인
-- [실패 메시지 재처리 및 Redis 장애 대응](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f0b479f9c41a95c359): ACK되지 않은 메시지가 PEL에 잔류 → 재처리 스케줄러 구현 → Redis 반복 장애가 애플리케이션으로 전파되지 않도록 Circuit Breaker 적용
-- [배치 중복 실행 방지](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598010b3bef72b942d1eee): 다중 서버에서 동일한 스케줄러가 중복 실행될 가능성 → ShedLock 적용 → 동일한 실행 시점에는 여러 서버 중 하나만 배치를 실행하도록 제어
+- **Redis Streams 선택·실패 재처리 및 장애 대응**: [메시지 브로커 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f4ae68c13faaa6d41d)에서 Consumer 처리 확인과 실패 재처리를 기준으로 Redis Streams 선택 → [재처리·장애 대응](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f0b479f9c41a95c359)에서 ACK·PEL 기반 재처리 스케줄러와 Circuit Breaker 적용
 
 ### 개인 고도화 및 검증
 
 - [DM DB 커넥션 풀 병목](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): 부하 증가에 따라 메시지 타임아웃 급증 → 스레드 덤프에서 처리 스레드의 DB 커넥션 대기 확인 → 풀 확대의 한계와 DB 왕복 축소·처리량 제어 방향 도출
 - [알림 삭제 배치 구조 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): Job은 완료됐지만 실제 삭제되지 않는 문제 발견 → UUID 기반 JDBC Paging·Batch DELETE로 변경하고 재시작을 고려한 복합 정렬·날짜 기준 JobParameter 적용 → `EXPLAIN ANALYZE`로 실행 계획을 비교해 복합 인덱스 효과 검증
-- [통계 쿼리 성능 검증](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f7825edf754e325ece): 다중 LEFT JOIN의 중간 결과 증가를 피하려고 스칼라 서브쿼리 적용 → 규모별 `EXPLAIN ANALYZE` 비교 → 데이터 규모와 PostgreSQL 설정에 따라 결과가 달라질 수 있음을 확인
 - [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
 
 ---
 
 ## 📊 성능 측정
 
-k6·PostgreSQL `EXPLAIN ANALYZE`·Spring Batch 메타테이블·서버 스레드 덤프로 실시간 파이프라인과 배치를 계층별(쿼리 → 배치 → 파이프라인 → 인프라)로 나눠 실측했습니다.
-
 | 측정 항목 | 결과 |
 |-----------|------|
-| WebSocket DM 부하테스트 | 부하 증가에 따라 메시지 타임아웃이 급증했고, 스레드 덤프를 통해 HikariCP 커넥션 대기를 1차 병목으로 확인 |
-| Redis Streams Consumer 직접 측정 | 앱·DB 경로를 우회한 조건에서 단일 Consumer 약 6,300 msg/sec |
-| 통계 쿼리 비교 | 소규모에서는 LEFT JOIN이 유리했지만 데이터 증가 후 스칼라 서브쿼리가 유리해지는 구간을 확인했으며, PostgreSQL 설정에 따라 결과가 달라질 수 있었음 |
-| 알림 삭제 Paging 조회 | `created_at, id` 복합 인덱스 적용 후 첫 페이지 조회가 8.056ms → 0.066ms로 단축됐고, `Index Only Scan`으로 전환된 것을 확인 |
-| SSE 배치 알림 팬아웃 | 500 VU 조건에서 발송 대상 325/325 수신, 비대상 오발송 0건 |
-
-> 📐 각 수치의 측정 구간과 파이프라인 간 관계는 [성능 측정 범위 정리](https://app.notion.com/p/3c6203c86c5980728926d20a6576963a?source=copy_link)에서 확인할 수 있습니다.
+| WebSocket DM 부하테스트 | **500 → 5,000 VU에서 메시지 타임아웃 15.5% → 95.9%** → 스레드 덤프에서 **216개 처리 스레드의 HikariCP 커넥션 대기** 확인 |
+| 알림 삭제 Paging 조회 | 47,300건 기준 첫 페이지 조회 **8.056ms → 0.066ms** → `(created_at, id)` 복합 인덱스 적용 후 **Index Only Scan** 전환 |
 
 ---
 
