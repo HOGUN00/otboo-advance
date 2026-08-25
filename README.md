@@ -12,9 +12,7 @@
 
 > 원본 프로젝트: [codeit-team2-advanced-project/sb06-otboo-team2](https://github.com/codeit-team2-advanced-project/sb06-otboo-team2) \
 > 팀 프로젝트: 5인, 2026.01.22 ~ 02.27 \
-> 개인 고도화: 2026.07 ~ 현재 \
-> 팀 프로젝트에서 실시간 DM·알림 시스템을 담당하여 WebSocket, SSE, Redis Streams, Spring Batch 등을 구현했습니다. \
-> 프로젝트 종료 후 개인 포크에서 기존 구현을 대상으로 부하 테스트와 성능 측정을 진행하고, 발견한 오류를 수정하며 병목 원인과 개선 방향을 분석했습니다.
+> 개인 고도화: 2026.07 ~
 
 ---
 
