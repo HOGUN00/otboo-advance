@@ -52,9 +52,9 @@
 
 ### 개인 고도화 및 검증
 
-- [통계 쿼리 성능 검증](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f7825edf754e325ece): 다중 LEFT JOIN의 중간 결과 증가를 피하려고 스칼라 서브쿼리 적용 → 규모별 `EXPLAIN ANALYZE` 비교 → 데이터 규모와 PostgreSQL 설정에 따라 결과가 달라질 수 있음을 확인
-- [알림 삭제 배치 구조 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): Job은 완료됐지만 실제 삭제되지 않는 문제 발견 → UUID 기반 JDBC Paging·Batch DELETE로 변경하고 재시작을 고려한 복합 정렬·날짜 기준 JobParameter 적용 → `EXPLAIN ANALYZE`로 실행 계획을 비교해 복합 인덱스 효과 검증
 - [DM DB 커넥션 풀 병목](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): 부하 증가에 따라 메시지 타임아웃 급증 → 스레드 덤프에서 처리 스레드의 DB 커넥션 대기 확인 → 풀 확대의 한계와 DB 왕복 축소·처리량 제어 방향 도출
+- [알림 삭제 배치 구조 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): Job은 완료됐지만 실제 삭제되지 않는 문제 발견 → UUID 기반 JDBC Paging·Batch DELETE로 변경하고 재시작을 고려한 복합 정렬·날짜 기준 JobParameter 적용 → `EXPLAIN ANALYZE`로 실행 계획을 비교해 복합 인덱스 효과 검증
+- [통계 쿼리 성능 검증](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f7825edf754e325ece): 다중 LEFT JOIN의 중간 결과 증가를 피하려고 스칼라 서브쿼리 적용 → 규모별 `EXPLAIN ANALYZE` 비교 → 데이터 규모와 PostgreSQL 설정에 따라 결과가 달라질 수 있음을 확인
 - [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
 
 ---
