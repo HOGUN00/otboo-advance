@@ -8,6 +8,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 
+import java.time.LocalDate;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -25,7 +27,7 @@ class NotificationCleanUpJobIntegrationTest {
     void deleteOldNotificationsJob_Success() throws Exception {
         // given
         JobParameters params = new JobParametersBuilder()
-                .addLong("time", System.currentTimeMillis())
+                .addLocalDateTime("cutoffDate", LocalDate.now().minusDays(30).atStartOfDay())
                 .toJobParameters();
 
         // when

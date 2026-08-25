@@ -10,6 +10,9 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.Scheduled;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
 @Configuration
 @RequiredArgsConstructor
 public class NotificationCleanUpBatchScheduler {
@@ -22,8 +25,12 @@ public class NotificationCleanUpBatchScheduler {
     public void runDailyJob() {
 
         try {
+            LocalDateTime cutoffDate = LocalDate.now()
+                    .minusDays(30)
+                    .atStartOfDay();
+
             JobParameters params = new JobParametersBuilder()
-                    .addLong("time", System.currentTimeMillis())
+                    .addLocalDateTime("cutoffDate", cutoffDate)
                     .toJobParameters();
             jobLauncher.run(deleteOldNotificationsJob, params);
         } catch (Exception e) {
