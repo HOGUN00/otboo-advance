@@ -59,6 +59,7 @@
 | 측정 항목 | 결과 |
 |-----------|------|
 | WebSocket DM 부하테스트 | **500 → 5,000 VU에서 메시지 타임아웃 15.5% → 95.9%** → 스레드 덤프에서 **216개 처리 스레드의 HikariCP 커넥션 대기** 확인 |
+| Redis Streams Consumer 구간 측정 | 앱·DB 경로를 제외하고 Redis Streams에 직접 메시지를 주입한 조건에서 단일 Consumer **약 6,300 msg/sec** 처리 |
 | 알림 삭제 Batch Paging 조회 | 47,300건 기준 첫 페이지 조회 **8.056ms → 0.066ms** → `(created_at, id)` 복합 인덱스 적용 후 **Index Only Scan** 전환 |
 
 ---
