@@ -100,8 +100,7 @@ SonarQube를 GitHub Actions와 연동하여 PR 단위로 품질을 자동 검증
 
 ### 사전 요구사항
 
-* Java 17
-* Docker & Docker Compose
+- Docker & Docker Compose
 
 ### 실행
 
@@ -111,13 +110,11 @@ cd otboo-advance
 
 # 환경변수 설정
 cp .env.example .env
-# .env 파일에 DB, Redis, S3, JWT 시크릿 등 입력
 
-# 인프라 실행 (PostgreSQL, Redis)
+# .env.example을 참고해 필요한 환경변수 입력
+
+# PostgreSQL, Redis, 애플리케이션 실행
 docker-compose up -d
-
-# 애플리케이션 실행
-./gradlew bootRun
 ```
 
 ---
