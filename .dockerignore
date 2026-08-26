@@ -1,0 +1,21 @@
+# Git
+.git
+.gitignore
+
+# Gradle 캐시
+.gradle
+build/
+
+# IDE 설정
+.idea/
+*.iml
+
+# 로컬 환경 변수
+.env
+
+# Dockerfile
+Dockerfile/
+
+workflows/
+
+docs/
