@@ -35,12 +35,12 @@ public class BasicCommentService implements CommentService {
 
   @Transactional
   @Override
-  public CommentDto createComment(UUID feedId, CommentCreateRequest commentCreateRequest) {
+  public CommentDto createComment(UUID currentUserId, UUID feedId, CommentCreateRequest commentCreateRequest) {
 
     Feed feed = feedRepository.findById(feedId)
         .orElseThrow(() -> new FeedNotFoundException(feedId));
 
-    User author = userRepository.findById(commentCreateRequest.authorId())
+    User author = userRepository.findById(currentUserId)
         .orElseThrow(UserNotFoundException::new);
 
     Comment comment = Comment.builder()

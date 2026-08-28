@@ -7,7 +7,7 @@ import java.util.UUID;
 
 public interface CommentService {
 
-  CommentDto createComment(UUID feedId, CommentCreateRequest commentCreateRequest);
+  CommentDto createComment(UUID currentUserId, UUID feedId, CommentCreateRequest commentCreateRequest);
 
   CommentDtoCursorResponse getComments(UUID feedId, String cursor, UUID idAfter, Integer limit);
 }

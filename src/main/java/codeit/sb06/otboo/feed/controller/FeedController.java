@@ -30,8 +30,11 @@ public class FeedController {
   private final FeedService service;
 
   @PostMapping
-  public ResponseEntity<FeedDto> createFeed(@RequestBody FeedCreateRequest request) {
-    return new ResponseEntity<>(service.create(request), HttpStatus.CREATED);
+  public ResponseEntity<FeedDto> createFeed(
+          @CurrentUserId UUID currentUserId,
+          @RequestBody FeedCreateRequest request
+  ) {
+    return new ResponseEntity<>(service.create(currentUserId,request), HttpStatus.CREATED);
   }
 
   @GetMapping

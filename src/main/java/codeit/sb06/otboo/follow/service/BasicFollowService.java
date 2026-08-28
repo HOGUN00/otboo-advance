@@ -40,9 +40,9 @@ public class BasicFollowService implements FollowService {
 
   @Transactional
   @Override
-  public FollowDto createFollow(FollowCreateRequest followCreateRequest) {
+  public FollowDto createFollow(UUID currentUserId, FollowCreateRequest followCreateRequest) {
 
-    User follower = userRepository.findById(followCreateRequest.followerId())
+    User follower = userRepository.findById(currentUserId)
         .orElseThrow(UserNotFoundException::new);
     User followee = userRepository.findById(followCreateRequest.followeeId())
         .orElseThrow(UserNotFoundException::new);

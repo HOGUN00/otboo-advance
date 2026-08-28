@@ -40,9 +40,11 @@ public class FollowController {
   })
   @PostMapping("/follows")
   public ResponseEntity<FollowDto> follow(
-      @RequestBody FollowCreateRequest followCreateRequest) {
+          @CurrentUserId UUID currentUserId,
+          @RequestBody FollowCreateRequest followCreateRequest
+  ) {
 
-    FollowDto response = followService.createFollow(followCreateRequest);
+    FollowDto response = followService.createFollow(currentUserId, followCreateRequest);
 
     log.debug("팔로우 생성 완료 followId={}", response.id());
 

@@ -4,6 +4,7 @@ import codeit.sb06.otboo.comment.dto.CommentCreateRequest;
 import codeit.sb06.otboo.comment.dto.CommentDto;
 import codeit.sb06.otboo.comment.dto.CommentDtoCursorResponse;
 import codeit.sb06.otboo.comment.service.CommentService;
+import codeit.sb06.otboo.security.resolver.CurrentUserId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -39,6 +40,7 @@ public class CommentController{
   @PostMapping("/{feedId}/comments")
   public ResponseEntity<CommentDto> createComment(
       @Parameter(description = "피드 Id", required = true)
+      @CurrentUserId UUID currentUserId,
       @PathVariable UUID feedId,
       @RequestBody CommentCreateRequest commentCreateRequest
   ){
@@ -46,7 +48,7 @@ public class CommentController{
     log.debug("댓글 생성 요청 feedId={}, authorId={}",
         feedId, commentCreateRequest.authorId());
 
-    CommentDto response = commentService.createComment(feedId, commentCreateRequest);
+    CommentDto response = commentService.createComment(currentUserId, feedId, commentCreateRequest);
 
     log.debug("댓글 생성 완료 commentId={}", response.id());
 

@@ -54,15 +54,14 @@ public class FeedService {
   private final S3StorageService s3StorageService;
 
   @Transactional
-  public FeedDto create(FeedCreateRequest request) {
-    UUID userId = request.authorId();
-    User author = userRepository.findById(userId)
+  public FeedDto create(UUID currentUserId, FeedCreateRequest request) {
+    User author = userRepository.findById(currentUserId)
         .orElseThrow(() -> new UserNotFoundException());
 
     Weather weather = weatherRepository.findById(request.weatherId())
         .orElseThrow(() -> new WeatherNotFoundException(request.weatherId()));
 
-    List<Clothes> clothes = loadClothesOrThrow(request.clothesIds());
+    List<Clothes> clothes = loadClothesOrThrow(currentUserId, request.clothesIds());
 
     Feed feed = Feed.create(author, weather, clothes, request.content());
     Feed saved = feedRepository.save(feed);
@@ -178,7 +177,7 @@ public class FeedService {
         });
   }
 
-  private List<Clothes> loadClothesOrThrow(List<UUID> ids) {
+  private List<Clothes> loadClothesOrThrow(UUID currentUserId, List<UUID> ids) {
     List<UUID> uniqueIds = ids.stream().distinct().toList();
     List<Clothes> clothes = clothesRepository.findAllById(uniqueIds);
 
@@ -190,6 +189,14 @@ public class FeedService {
           .filter(id -> !found.contains(id))
           .toList();
       throw new ClothesNotFoundException(missing);
+    }
+
+    boolean allOwnedByCurrentUser = clothes.stream()
+            .allMatch(clothesItem ->
+                    clothesItem.getOwnerId().equals(currentUserId));
+
+    if (!allOwnedByCurrentUser) {
+      throw new ForbiddenException();
     }
 
     return clothes;
