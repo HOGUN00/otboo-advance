@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.follow.service;
 
+import codeit.sb06.otboo.exception.auth.ForbiddenException;
 import codeit.sb06.otboo.exception.follow.FollowCancelFailException;
 import codeit.sb06.otboo.exception.follow.FollowNotFoundException;
 import codeit.sb06.otboo.exception.profile.ProfileNotFoundException;
@@ -186,14 +187,18 @@ public class BasicFollowService implements FollowService {
 
   @Transactional
   @Override
-  public void deleteFollow(UUID followId) {
+  public void deleteFollow(UUID currentUserId, UUID followId) {
 
     Follow follow =  followRepository.findById(followId)
         .orElseThrow(() -> new FollowCancelFailException(new FollowNotFoundException()));
 
-    try {
+    User follower = follow.getFollower();
 
-      User follower = follow.getFollower();
+    if(!follower.getId().equals(currentUserId)) {
+      throw new ForbiddenException();
+    }
+
+    try {
       User followee = follow.getFollowee();
 
       Profile followerProfile = profileRepository.findByUserId(follower)

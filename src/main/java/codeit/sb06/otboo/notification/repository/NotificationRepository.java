@@ -4,6 +4,7 @@ import codeit.sb06.otboo.notification.entity.Notification;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 
 import java.time.LocalDateTime;
@@ -28,4 +29,12 @@ public interface NotificationRepository extends JpaRepository<Notification, UUID
             ORDER BY noti.createdAt DESC, noti.id DESC
             """)
     Slice<Notification> findByReceiverIdWithCursor(LocalDateTime cursor, UUID idAfter, UUID myUserId, Pageable pageable);
+
+    @Modifying
+    @Query("""
+        delete from Notification n
+        where n.id = :notificationId
+          and n.receiverId = :currentUserId
+    """)
+    int deleteByIdAndReceiverId(UUID notificationId, UUID currentUserId);
 }

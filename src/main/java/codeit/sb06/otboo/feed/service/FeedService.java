@@ -120,9 +120,20 @@ public class FeedService {
   }
 
   @Transactional
-  public void delete(UUID feedId) {
+  public void delete(UUID currentUserId, UUID feedId) {
     Feed feed = feedRepository.findById(feedId)
         .orElseThrow(() -> new FeedNotFoundException(feedId));
+
+    if (!feed.getUser().getId().equals(currentUserId)) {
+      User user = userRepository.findById(currentUserId)
+              .orElseThrow(UserNotFoundException::new);
+
+      if (user.getRole() != Role.ADMIN) {
+        throw new ForbiddenException();
+      }
+    }
+
+
     feedRepository.delete(feed);
   }
 

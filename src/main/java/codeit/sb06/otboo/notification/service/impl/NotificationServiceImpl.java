@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.notification.service.impl;
 
+import codeit.sb06.otboo.exception.auth.ForbiddenException;
 import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.dto.response.NotificationDtoCursorResponse;
 import codeit.sb06.otboo.notification.entity.Notification;
@@ -65,8 +66,12 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void deleteById(UUID notificationId) {
+    public void deleteById(UUID currentUserId, UUID notificationId) {
         log.debug("알림 삭제: {}", notificationId);
-        notificationRepository.deleteById(notificationId);
+        int deleted = notificationRepository.deleteByIdAndReceiverId(notificationId, currentUserId);
+
+        if(deleted == 0) {
+            throw new ForbiddenException();
+        }
     }
 }

@@ -135,9 +135,10 @@ public class FollowController {
   })
   @DeleteMapping("/follows/{followId}")
   public ResponseEntity<FollowDto> deleteFollow(
-      @PathVariable UUID followId
+          @CurrentUserId UUID currentUserId,
+          @PathVariable UUID followId
   ){
-    followService.deleteFollow(followId);
+    followService.deleteFollow(currentUserId, followId);
 
     log.debug("팔로우 취소 완료 followId={}", followId);
 

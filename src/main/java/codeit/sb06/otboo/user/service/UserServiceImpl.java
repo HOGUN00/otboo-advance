@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.user.service;
 
+import codeit.sb06.otboo.exception.auth.ForbiddenException;
 import codeit.sb06.otboo.exception.user.MailSendException;
 import codeit.sb06.otboo.exception.user.UserAlreadyExistException;
 import codeit.sb06.otboo.exception.user.UserNotFoundException;
@@ -137,7 +138,11 @@ public class UserServiceImpl {
         return tempPassword.toString();
     }
 
-    public void changePassword(UUID userId, ChangePasswordRequest changePasswordRequest) {
+    @Transactional
+    public void changePassword(UUID currentUserId, UUID userId, ChangePasswordRequest changePasswordRequest) {
+        if (!currentUserId.equals(userId)) {
+            throw new ForbiddenException();
+        }
         log.debug("Change password requested for userId: {}", userId);
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         user.setEncryptPassword(passwordEncoder, changePasswordRequest.password());

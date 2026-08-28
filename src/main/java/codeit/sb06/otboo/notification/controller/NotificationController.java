@@ -30,8 +30,9 @@ public class NotificationController {
 
     @DeleteMapping("/{notificationId}")
     public void deleteNotification(
+            @CurrentUserId UUID currentUserId,
             @PathVariable UUID notificationId
     ) {
-        notificationService.deleteById(notificationId);
+        notificationService.deleteById(currentUserId, notificationId);
     }
 }

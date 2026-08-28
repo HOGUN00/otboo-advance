@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.profile.service;
 
+import codeit.sb06.otboo.exception.auth.ForbiddenException;
 import codeit.sb06.otboo.exception.profile.ProfileNotFoundException;
 import codeit.sb06.otboo.exception.profile.S3UploadFailedException;
 import codeit.sb06.otboo.exception.user.UserNotFoundException;
@@ -57,7 +58,11 @@ public class ProfileServiceImpl {
     }
 
     @Transactional
-    public ProfileDto updateProfile(UUID userId, ProfileUpdateRequest profileUpdateRequest, @Nullable MultipartFile profileImage){
+    public ProfileDto updateProfile(UUID currentUserId, UUID userId, ProfileUpdateRequest profileUpdateRequest, @Nullable MultipartFile profileImage){
+
+        if (!currentUserId.equals(userId)) {
+            throw new ForbiddenException();
+        }
 
         User user = userRepository.findById(userId).orElseThrow(UserNotFoundException::new);
         Profile profile = profileRepository.findByUserId(user).orElseThrow(ProfileNotFoundException::new);

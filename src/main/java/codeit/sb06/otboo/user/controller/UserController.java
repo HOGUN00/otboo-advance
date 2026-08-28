@@ -3,6 +3,7 @@ package codeit.sb06.otboo.user.controller;
 import codeit.sb06.otboo.profile.dto.ProfileDto;
 import codeit.sb06.otboo.profile.dto.ProfileUpdateRequest;
 import codeit.sb06.otboo.profile.service.ProfileServiceImpl;
+import codeit.sb06.otboo.security.resolver.CurrentUserId;
 import codeit.sb06.otboo.security.resolver.RequireRole;
 import codeit.sb06.otboo.user.dto.UserDto;
 import codeit.sb06.otboo.user.dto.request.ChangePasswordRequest;
@@ -77,20 +78,24 @@ public class UserController {
     }
 
     @PatchMapping("/{userId}/password")
-    public ResponseEntity<Void> changePassword(@PathVariable UUID userId, @RequestBody
-        ChangePasswordRequest changePasswordRequest){
+    public ResponseEntity<Void> changePassword(
+            @CurrentUserId UUID currentUserId,
+            @PathVariable UUID userId,
+            @RequestBody ChangePasswordRequest changePasswordRequest){
         log.info("Change password requested for userId: {}", userId);
-        userServiceImpl.changePassword(userId, changePasswordRequest);
+        userServiceImpl.changePassword(currentUserId, userId, changePasswordRequest);
         return ResponseEntity.noContent().build();
     }
 
     @PatchMapping(value = "/{userId}/profiles", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ProfileDto> updateProfile(@PathVariable UUID userId,
+    public ResponseEntity<ProfileDto> updateProfile(
+            @CurrentUserId UUID currentUserId,
+            @PathVariable UUID userId,
         @RequestPart(value = "request") ProfileUpdateRequest profileUpdateRequest,
         @RequestPart(value = "image", required = false) MultipartFile profileImage){
 
         log.info("Update profile requested for userId: {}", userId);
-        ProfileDto updatedProfile = profileServiceImpl.updateProfile(userId, profileUpdateRequest, profileImage);
+        ProfileDto updatedProfile = profileServiceImpl.updateProfile(currentUserId, userId, profileUpdateRequest, profileImage);
         return ResponseEntity.ok(updatedProfile);
 
     }

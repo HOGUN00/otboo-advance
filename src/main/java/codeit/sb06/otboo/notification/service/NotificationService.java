@@ -11,7 +11,7 @@ public interface NotificationService {
 
     NotificationDto create(UUID receiverId, String title, String content, NotificationLevel level);
 
-    void deleteById(UUID notificationId);
+    void deleteById(UUID currentUserId, UUID notificationId);
 
     NotificationDtoCursorResponse getNotifications(LocalDateTime cursor, UUID idAfter, int limit, UUID myUserId);
 }
