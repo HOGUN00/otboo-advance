@@ -1,7 +1,7 @@
 package codeit.sb06.otboo.config;
 
 import codeit.sb06.otboo.security.handler.Http403ForbiddenAccessDeniedHandler;
-import codeit.sb06.otboo.security.jwt.InMemoryJwtRegistry;
+import codeit.sb06.otboo.security.handler.CustomAuthenticationEntryPoint;
 import codeit.sb06.otboo.security.jwt.RedisJwtRegistry;
 import codeit.sb06.otboo.user.service.CustomOAuth2UserService;
 import codeit.sb06.otboo.user.service.CustomOidcUserService;
@@ -34,7 +34,6 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.authentication.Http403ForbiddenEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -50,6 +49,7 @@ public class SecurityConfig {
         ObjectMapper objectMapper, JwtAuthenticationFilter jwtAuthenticationFilter,
         JwtLogoutHandler jwtLogoutHandler, LoginFailureHandler loginFailureHandler,
         TemporaryPasswordAuthenticationProvider temporaryPasswordAuthenticationProvider,
+        CustomAuthenticationEntryPoint customAuthenticationEntryPoint,
         CustomOAuth2UserService customOAuth2UserService,
         CustomOidcUserService customOidcUserService,
         JwtLoginSuccessHandler jwtLoginSuccessHandlerForOauth2,
@@ -78,16 +78,30 @@ public class SecurityConfig {
                 .logoutSuccessHandler(
                     new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT))
             )
-            .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/api/auth/**").permitAll()
-                    .requestMatchers(HttpMethod.GET, "/api/clothes/attribute-defs").hasRole("USER")
-                    .requestMatchers("/api/clothes/attribute-defs/**").hasRole("ADMIN")
-                    .requestMatchers("/api/clothes/**").hasRole("USER")
-                    .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
-                    .anyRequest().permitAll()
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/clothes/attribute-defs").hasRole("USER")
+                        .requestMatchers("/api/clothes/attribute-defs/**").hasRole("ADMIN")
+                        .requestMatchers("/api/clothes/**").hasRole("USER")
+                        .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
+
+                        .requestMatchers(
+                                "/",
+                                "/index.html",
+                                "/assets/**",
+                                "/vite.svg",
+                                "/logo_symbol.svg",
+                                "/error"
+                        ).permitAll()
+
+                        .requestMatchers("/ws", "/ws/**").permitAll()
+
+                        .requestMatchers("/actuator/health").permitAll()
+
+                        .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
-                .authenticationEntryPoint(new Http403ForbiddenEntryPoint())
+                .authenticationEntryPoint(customAuthenticationEntryPoint)
                 .accessDeniedHandler(new Http403ForbiddenAccessDeniedHandler(objectMapper))
             )
             .sessionManagement(session -> session
