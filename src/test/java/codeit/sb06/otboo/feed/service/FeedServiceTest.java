@@ -41,20 +41,25 @@ import codeit.sb06.otboo.weather.dto.weather.SkyStatus;
 import codeit.sb06.otboo.weather.dto.weather.WindStrength;
 import codeit.sb06.otboo.weather.entity.Weather;
 import codeit.sb06.otboo.weather.repository.WeatherRepository;
+import codeit.sb06.otboo.util.EasyRandomUtil;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.jeasy.random.EasyRandom;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class FeedServiceTest {
+
+    private final EasyRandom easyRandom = EasyRandomUtil.getRandom();
 
     @InjectMocks
     private FeedService feedService;
@@ -127,8 +132,10 @@ class FeedServiceTest {
     }
 
     @Test
+    @DisplayName("피드 생성은 요청 authorId 대신 인증 사용자를 작성자로 사용한다")
     void createFeed_success() {
         stubPresignedUrl();
+        UUID spoofedAuthorId = UUID.randomUUID();
         UUID clothesId1 = UUID.randomUUID();
         UUID clothesId2 = UUID.randomUUID();
         List<UUID> clothesIds = List.of(clothesId1, clothesId2);
@@ -137,7 +144,7 @@ class FeedServiceTest {
         Clothes clothes2 = new Clothes(authorId, "pants", "img2", ClothesType.BOTTOM);
 
         FeedCreateRequest request = new FeedCreateRequest(
-            authorId,
+            spoofedAuthorId,
             weatherId,
             clothesIds,
             "content"
@@ -149,7 +156,7 @@ class FeedServiceTest {
         when(feedRepository.save(any(Feed.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(followRepository.findByFolloweeId(any())).thenReturn(Collections.emptyList());
 
-    FeedDto result = feedService.create(request);
+    FeedDto result = feedService.create(authorId, request);
 
     verify(feedRepository).save(any(Feed.class));
     assertNotNull(result);
@@ -157,6 +164,23 @@ class FeedServiceTest {
     assertEquals(authorId, result.author().userId());
     assertEquals(2, result.ootds().size());
   }
+
+    @Test
+    @DisplayName("피드 생성 시 다른 사용자의 옷은 사용할 수 없다")
+    void createFeed_rejectsClothesOwnedByAnotherUser() {
+        UUID clothesId = UUID.randomUUID();
+        Clothes otherUsersClothes = easyRandom.nextObject(Clothes.class);
+        ReflectionTestUtils.setField(otherUsersClothes, "ownerId", UUID.randomUUID());
+        FeedCreateRequest request = new FeedCreateRequest(
+            UUID.randomUUID(), weatherId, List.of(clothesId), "content");
+
+        when(userRepository.findById(authorId)).thenReturn(Optional.of(author));
+        when(weatherRepository.findById(weatherId)).thenReturn(Optional.of(weather));
+        when(clothesRepository.findAllById(any())).thenReturn(List.of(otherUsersClothes));
+
+        assertThrows(ForbiddenException.class, () -> feedService.create(authorId, request));
+        verify(feedRepository, never()).save(any());
+    }
 
     @Test
     void createFeed_mapsFeedClothesToJoinEntities() {
@@ -180,7 +204,7 @@ class FeedServiceTest {
         when(clothesRepository.findAllById(any())).thenReturn(List.of(clothes1, clothes2));
         when(feedRepository.save(any(Feed.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        feedService.create(request);
+        feedService.create(authorId, request);
 
         ArgumentCaptor<Feed> captor = ArgumentCaptor.forClass(Feed.class);
         verify(feedRepository).save(captor.capture());
@@ -213,7 +237,7 @@ class FeedServiceTest {
         when(clothesRepository.findAllById(any())).thenReturn(List.of(clothes1));
         when(feedRepository.save(any(Feed.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        feedService.create(request);
+        feedService.create(authorId, request);
 
         ArgumentCaptor<Feed> captor = ArgumentCaptor.forClass(Feed.class);
         verify(feedRepository).save(captor.capture());
@@ -242,7 +266,7 @@ class FeedServiceTest {
         when(weatherRepository.findById(weatherId)).thenReturn(Optional.of(weather));
         when(clothesRepository.findAllById(any())).thenReturn(List.of(clothes1));
 
-        assertThrows(ClothesNotFoundException.class, () -> feedService.create(request));
+        assertThrows(ClothesNotFoundException.class, () -> feedService.create(authorId, request));
     }
 
     @Test
@@ -259,7 +283,7 @@ class FeedServiceTest {
 
         when(userRepository.findById(authorId)).thenReturn(Optional.empty());
 
-        assertThrows(UserNotFoundException.class, () -> feedService.create(request));
+        assertThrows(UserNotFoundException.class, () -> feedService.create(authorId, request));
     }
 
     @Test
@@ -279,7 +303,7 @@ class FeedServiceTest {
         when(userRepository.findById(authorId)).thenReturn(Optional.of(author));
         when(weatherRepository.findById(weatherId)).thenReturn(Optional.empty());
 
-        assertThrows(WeatherNotFoundException.class, () -> feedService.create(request));
+        assertThrows(WeatherNotFoundException.class, () -> feedService.create(authorId, request));
     }
 
     @Test
@@ -287,7 +311,7 @@ class FeedServiceTest {
         UUID feedId = UUID.randomUUID();
         when(feedRepository.findById(feedId)).thenReturn(Optional.of(feed));
 
-        feedService.delete(feedId);
+        feedService.delete(authorId, feedId);
 
         verify(feedRepository).delete(feed);
     }
@@ -297,7 +321,7 @@ class FeedServiceTest {
         UUID feedId = UUID.randomUUID();
         when(feedRepository.findById(feedId)).thenReturn(Optional.empty());
 
-        assertThrows(FeedNotFoundException.class, () -> feedService.delete(feedId));
+        assertThrows(FeedNotFoundException.class, () -> feedService.delete(authorId, feedId));
         verify(feedRepository, never()).delete(any());
     }
 

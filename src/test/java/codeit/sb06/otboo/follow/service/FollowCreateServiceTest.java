@@ -22,6 +22,7 @@ import codeit.sb06.otboo.user.repository.UserRepository;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -65,6 +66,7 @@ public class FollowCreateServiceTest {
   }
 
   @Test
+  @DisplayName("팔로우 생성은 요청 followerId 대신 인증 사용자를 팔로워로 사용한다")
   void createFollow_success() {
 
     //given
@@ -76,7 +78,7 @@ public class FollowCreateServiceTest {
     when(followee.getName()).thenReturn("테스트 팔로위");
     when(followee.getProfileImageUrl()).thenReturn("테스트 팔로위 사진");
 
-    FollowCreateRequest followCreateRequest = new FollowCreateRequest(followeeId,followerId);
+    FollowCreateRequest followCreateRequest = new FollowCreateRequest(followeeId, UUID.randomUUID());
 
     when(userRepository.findById(followeeId)).thenReturn(Optional.of(followee));
     when(userRepository.findById(followerId)).thenReturn(Optional.of(follower));
@@ -89,7 +91,7 @@ public class FollowCreateServiceTest {
     when(followRepository.save(any(Follow.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
     //when
-    FollowDto result = basicFollowService.createFollow(followCreateRequest);
+    FollowDto result = basicFollowService.createFollow(followerId, followCreateRequest);
 
     //then
     // 결과가 널이 아닌지
@@ -115,7 +117,7 @@ public class FollowCreateServiceTest {
     when(userRepository.findById(followeeId)).thenReturn(Optional.empty());
 
     // then
-    assertThrows(UserNotFoundException.class, () -> basicFollowService.createFollow(request));
+    assertThrows(UserNotFoundException.class, () -> basicFollowService.createFollow(followerId, request));
   }
 
   @Test
@@ -125,7 +127,7 @@ public class FollowCreateServiceTest {
 
     when(userRepository.findById(followerId)).thenReturn(Optional.empty());
 
-    assertThrows(UserNotFoundException.class, () -> basicFollowService.createFollow(request));
+    assertThrows(UserNotFoundException.class, () -> basicFollowService.createFollow(followerId, request));
 
   }
 }

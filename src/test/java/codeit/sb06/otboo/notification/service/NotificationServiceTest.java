@@ -1,6 +1,7 @@
 package codeit.sb06.otboo.notification.service;
 
 import codeit.sb06.otboo.notification.dto.NotificationDto;
+import codeit.sb06.otboo.exception.auth.ForbiddenException;
 import codeit.sb06.otboo.notification.dto.response.NotificationDtoCursorResponse;
 import codeit.sb06.otboo.notification.entity.Notification;
 import codeit.sb06.otboo.notification.enums.NotificationLevel;
@@ -25,6 +26,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -96,11 +99,28 @@ class NotificationServiceTest {
     void deleteNotificationTest() {
         // given
         UUID notificationId = UUID.randomUUID();
+        UUID currentUserId = UUID.randomUUID();
+        given(notificationRepository.deleteByIdAndReceiverId(notificationId, currentUserId))
+            .willReturn(1);
 
         // when
-        notificationService.deleteById(notificationId);
+        notificationService.deleteById(currentUserId, notificationId);
 
         // then
-        verify(notificationRepository).deleteById(notificationId);
+        verify(notificationRepository).deleteByIdAndReceiverId(notificationId, currentUserId);
+    }
+
+    @Test
+    @DisplayName("수신자가 아닌 사용자는 알림을 삭제할 수 없다")
+    void deleteNotificationRejectsNonReceiver() {
+        UUID notificationId = UUID.randomUUID();
+        UUID currentUserId = UUID.randomUUID();
+        given(notificationRepository.deleteByIdAndReceiverId(notificationId, currentUserId))
+            .willReturn(0);
+
+        assertThrows(
+            ForbiddenException.class,
+            () -> notificationService.deleteById(currentUserId, notificationId)
+        );
     }
 }

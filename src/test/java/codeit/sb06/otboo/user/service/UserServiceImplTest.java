@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import codeit.sb06.otboo.exception.user.MailSendException;
+import codeit.sb06.otboo.exception.auth.ForbiddenException;
 import codeit.sb06.otboo.exception.user.UserAlreadyExistException;
 import codeit.sb06.otboo.exception.user.UserNotFoundException;
 import codeit.sb06.otboo.notification.publisher.NotificationEventPublisher;
@@ -28,6 +29,7 @@ import codeit.sb06.otboo.user.entity.Role;
 import codeit.sb06.otboo.user.entity.User;
 import codeit.sb06.otboo.user.entity.Provider;
 import codeit.sb06.otboo.user.repository.UserRepository;
+import codeit.sb06.otboo.util.EasyRandomUtil;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import java.time.LocalDateTime;
@@ -36,10 +38,12 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.jeasy.random.EasyRandom;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
@@ -49,6 +53,8 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceImplTest {
+
+    private final EasyRandom easyRandom = EasyRandomUtil.getRandom();
 
     @Mock
     private UserRepository userRepository;
@@ -221,7 +227,7 @@ class UserServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.of(user));
         when(passwordEncoder.encode("new-password")).thenReturn("encoded-new-password");
 
-        userService.changePassword(userId, new ChangePasswordRequest("new-password"));
+        userService.changePassword(userId, userId, new ChangePasswordRequest("new-password"));
 
         assertEquals("encoded-new-password", user.getPassword());
     }
@@ -232,7 +238,23 @@ class UserServiceImplTest {
         when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
         assertThrows(UserNotFoundException.class,
-            () -> userService.changePassword(userId, new ChangePasswordRequest("new-password")));
+            () -> userService.changePassword(userId, userId, new ChangePasswordRequest("new-password")));
+    }
+
+    @Test
+    @DisplayName("인증 사용자는 다른 사용자의 비밀번호를 변경할 수 없다")
+    void changePasswordRejectsAnotherUser() {
+        UUID currentUserId = UUID.randomUUID();
+        UUID targetUserId = UUID.randomUUID();
+
+        assertThrows(
+            ForbiddenException.class,
+            () -> userService.changePassword(
+                currentUserId,
+                targetUserId,
+                easyRandom.nextObject(ChangePasswordRequest.class))
+        );
+        verify(userRepository, never()).findById(any());
     }
 
     private User user(UUID id, boolean locked) {

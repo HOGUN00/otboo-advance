@@ -2,6 +2,7 @@ package codeit.sb06.otboo.comment.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static codeit.sb06.otboo.security.SecurityTestFixtures.userDto;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -14,15 +15,23 @@ import codeit.sb06.otboo.comment.service.CommentService;
 import codeit.sb06.otboo.exception.comment.CommentCreateFailException;
 import codeit.sb06.otboo.security.jwt.JwtAuthenticationFilter;
 import codeit.sb06.otboo.security.jwt.JwtTokenProvider;
+import codeit.sb06.otboo.security.user.OtbooUserDetails;
+import codeit.sb06.otboo.user.dto.UserDto;
+import codeit.sb06.otboo.user.entity.Role;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -53,6 +62,20 @@ public class CommentCreateControllerTest {
   private final UUID feedId = UUID.randomUUID();
   private final UUID authorId = UUID.randomUUID();
 
+  @BeforeEach
+  void setUpAuthentication() {
+    OtbooUserDetails principal = new OtbooUserDetails(
+        userDto(authorId, Role.USER), "password", Map.of());
+    SecurityContextHolder.getContext().setAuthentication(
+        UsernamePasswordAuthenticationToken.authenticated(
+            principal, principal.getPassword(), principal.getAuthorities()));
+  }
+
+  @AfterEach
+  void clearAuthentication() {
+    SecurityContextHolder.clearContext();
+  }
+
   @Test
   void createComment_success_200response() throws Exception {
 
@@ -67,7 +90,7 @@ public class CommentCreateControllerTest {
 
     );
 
-    when(commentService.createComment(eq(feedId),any()))
+    when(commentService.createComment(eq(authorId), eq(feedId), any()))
         .thenReturn(response);
 
     // when
@@ -94,7 +117,7 @@ public class CommentCreateControllerTest {
   void createComment_fail_400response() throws Exception {
 
     // given
-    when(commentService.createComment(eq(feedId), any()))
+    when(commentService.createComment(eq(authorId), eq(feedId), any()))
         .thenThrow(new CommentCreateFailException());
 
     CommentCreateRequest request =

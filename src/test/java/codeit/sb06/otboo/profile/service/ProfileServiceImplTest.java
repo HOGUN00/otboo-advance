@@ -6,9 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.when;
 
 import codeit.sb06.otboo.exception.profile.ProfileNotFoundException;
+import codeit.sb06.otboo.exception.auth.ForbiddenException;
 import codeit.sb06.otboo.exception.profile.S3UploadFailedException;
 import codeit.sb06.otboo.exception.user.UserNotFoundException;
 import codeit.sb06.otboo.profile.dto.LocationDto;
@@ -23,20 +25,25 @@ import codeit.sb06.otboo.user.entity.Role;
 import codeit.sb06.otboo.user.entity.User;
 import codeit.sb06.otboo.user.entity.Provider;
 import codeit.sb06.otboo.user.repository.UserRepository;
+import codeit.sb06.otboo.util.EasyRandomUtil;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.jeasy.random.EasyRandom;
 import org.springframework.mock.web.MockMultipartFile;
 
 @ExtendWith(MockitoExtension.class)
 class ProfileServiceImplTest {
+
+    private final EasyRandom easyRandom = EasyRandomUtil.getRandom();
 
     @Mock
     private ProfileRepository profileRepository;
@@ -140,7 +147,7 @@ class ProfileServiceImplTest {
         when(s3StorageService.getPresignedUrl("s3-key")).thenReturn("https://example.com/s3-key");
         when(profileRepository.save(profile)).thenReturn(profile);
 
-        ProfileDto result = profileService.updateProfile(user.getId(), request, profileImage);
+        ProfileDto result = profileService.updateProfile(user.getId(), user.getId(), request, profileImage);
 
         verify(locationRepository).save(any(Location.class));
         verify(s3StorageService).putObject(any(String.class), any(byte[].class));
@@ -173,7 +180,7 @@ class ProfileServiceImplTest {
             .thenReturn(Optional.of(existingLocation), Optional.of(existingLocation));
         when(profileRepository.save(profile)).thenReturn(profile);
 
-        ProfileDto result = profileService.updateProfile(user.getId(), request, null);
+        ProfileDto result = profileService.updateProfile(user.getId(), user.getId(), request, null);
 
         verify(locationRepository).save(existingLocation);
         assertEquals("new-name", result.name());
@@ -199,8 +206,22 @@ class ProfileServiceImplTest {
 
         assertThrows(
             S3UploadFailedException.class,
-            () -> profileService.updateProfile(user.getId(), request, profileImage)
+            () -> profileService.updateProfile(user.getId(), user.getId(), request, profileImage)
         );
+    }
+
+    @Test
+    @DisplayName("인증 사용자는 다른 사용자의 프로필을 변경할 수 없다")
+    void updateProfileRejectsAnotherUser() {
+        UUID currentUserId = UUID.randomUUID();
+        UUID targetUserId = UUID.randomUUID();
+        ProfileUpdateRequest request = easyRandom.nextObject(ProfileUpdateRequest.class);
+
+        assertThrows(
+            ForbiddenException.class,
+            () -> profileService.updateProfile(currentUserId, targetUserId, request, null)
+        );
+        verify(userRepository, never()).findById(any());
     }
 
     private User createUser() {

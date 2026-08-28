@@ -3,6 +3,7 @@ package codeit.sb06.otboo.user.controller;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static codeit.sb06.otboo.security.SecurityTestFixtures.userDto;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -26,10 +27,12 @@ import codeit.sb06.otboo.security.jwt.JwtAuthenticationFilter;
 import codeit.sb06.otboo.security.jwt.JwtLoginSuccessHandler;
 import codeit.sb06.otboo.security.jwt.JwtLogoutHandler;
 import codeit.sb06.otboo.security.jwt.JwtTokenProvider;
+import codeit.sb06.otboo.security.user.OtbooUserDetails;
 import codeit.sb06.otboo.profile.service.ProfileServiceImpl;
 import codeit.sb06.otboo.user.service.UserServiceImpl;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +45,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -214,6 +216,7 @@ class UserControllerTest {
     @Test
     void changePasswordReturnsNoContent() throws Exception {
         UUID userId = UUID.randomUUID();
+        setAuthentication(userId, Role.USER);
 
         mockMvc.perform(
                 patch("/api/users/{userId}/password", userId)
@@ -222,12 +225,13 @@ class UserControllerTest {
             )
             .andExpect(status().isNoContent());
 
-        verify(userServiceImpl).changePassword(eq(userId), any());
+        verify(userServiceImpl).changePassword(eq(userId), eq(userId), any());
     }
 
     @Test
     void updateProfileAcceptsMultipartFormData() throws Exception {
         UUID userId = UUID.randomUUID();
+        setAuthentication(userId, Role.USER);
         ProfileDto profileDto = new ProfileDto(
             userId,
             "new-name",
@@ -237,7 +241,7 @@ class UserControllerTest {
             3,
             "s3-key"
         );
-        when(profileServiceImpl.updateProfile(eq(userId), any(), isNull())).thenReturn(profileDto);
+        when(profileServiceImpl.updateProfile(eq(userId), eq(userId), any(), isNull())).thenReturn(profileDto);
 
         MockMultipartFile profile = new MockMultipartFile(
             "request",
@@ -270,11 +274,17 @@ class UserControllerTest {
     }
 
     private void setAuthentication(Role role) {
+        setAuthentication(UUID.randomUUID(), role);
+    }
+
+    private void setAuthentication(UUID userId, Role role) {
+        OtbooUserDetails principal = new OtbooUserDetails(
+            userDto(userId, role), "password", Map.of());
         UsernamePasswordAuthenticationToken authentication =
             new UsernamePasswordAuthenticationToken(
-                "user",
-                "password",
-                List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))
+                principal,
+                principal.getPassword(),
+                principal.getAuthorities()
             );
         SecurityContextHolder.getContext().setAuthentication(authentication);
     }

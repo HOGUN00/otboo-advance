@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import codeit.sb06.otboo.exception.follow.FollowCancelFailException;
+import codeit.sb06.otboo.exception.auth.ForbiddenException;
 import codeit.sb06.otboo.follow.entity.Follow;
 import codeit.sb06.otboo.follow.repository.FollowRepository;
 import codeit.sb06.otboo.profile.entity.Profile;
@@ -19,6 +20,7 @@ import codeit.sb06.otboo.user.entity.User;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -50,6 +52,7 @@ public class FollowDeleteTest {
 
     when(followRepository.findById(followId)).thenReturn(Optional.of(follow));
     when(follow.getFollower()).thenReturn(follower);
+    when(follower.getId()).thenReturn(UUID.randomUUID());
     when(follow.getFollowee()).thenReturn(followee);
 
     when(profileRepository.findByUserId(follower))
@@ -61,7 +64,7 @@ public class FollowDeleteTest {
     doNothing().when(followRepository).deleteById(followId);
 
     //when
-    basicFollowService.deleteFollow(followId);
+    basicFollowService.deleteFollow(follower.getId(), followId);
 
     //then
     verify(followRepository,times(1)).deleteById(followId);
@@ -80,7 +83,7 @@ public class FollowDeleteTest {
     // when
     FollowCancelFailException exception  = assertThrows(
         FollowCancelFailException.class,
-        () -> basicFollowService.deleteFollow(followId)
+        () -> basicFollowService.deleteFollow(UUID.randomUUID(), followId)
     );
 
     //then
@@ -88,5 +91,23 @@ public class FollowDeleteTest {
 
     verify(followRepository,never()).deleteById(any());
 
+  }
+
+  @Test
+  @DisplayName("팔로워가 아닌 사용자는 팔로우를 삭제할 수 없다")
+  void deleteFollow_rejectsAnotherFollower() {
+    UUID followId = UUID.randomUUID();
+    User follower = mock(User.class);
+    Follow follow = mock(Follow.class);
+    when(followRepository.findById(followId)).thenReturn(Optional.of(follow));
+    when(follow.getFollower()).thenReturn(follower);
+    when(follower.getId()).thenReturn(UUID.randomUUID());
+
+    assertThrows(
+        ForbiddenException.class,
+        () -> basicFollowService.deleteFollow(UUID.randomUUID(), followId)
+    );
+
+    verify(followRepository, never()).deleteById(any());
   }
 }

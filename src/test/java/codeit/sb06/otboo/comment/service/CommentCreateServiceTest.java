@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -103,12 +104,15 @@ public class CommentCreateServiceTest {
 
   // 댓글 성공 테스트
   @Test
+  @DisplayName("댓글 생성은 요청 authorId 대신 인증 사용자를 작성자로 사용한다")
   void createCommentTest(){
 
     //given
 
     CommentCreateRequest request =
         new CommentCreateRequest(feedId, authorId,"테스트 댓글 내용");
+
+    request = new CommentCreateRequest(feedId, UUID.randomUUID(), request.content());
 
     Comment savedComment = Comment.builder()
         .content("테스트 댓글 내용")
@@ -127,7 +131,7 @@ public class CommentCreateServiceTest {
         .thenReturn(savedComment);
 
     //when
-    CommentDto result = basicCommentService.createComment(feedId,request);
+    CommentDto result = basicCommentService.createComment(authorId, feedId, request);
 
     //then
     verify(commentRepository).save(any(Comment.class));
@@ -155,7 +159,7 @@ public class CommentCreateServiceTest {
     //then
     assertThrows(
         FeedNotFoundException.class,
-        () -> basicCommentService.createComment(feedId, request)
+        () -> basicCommentService.createComment(authorId, feedId, request)
     );
   }
 
@@ -177,7 +181,7 @@ public class CommentCreateServiceTest {
     // then
     assertThrows(
         UserNotFoundException.class,
-        () -> basicCommentService.createComment(feedId, request)
+        () -> basicCommentService.createComment(authorId, feedId, request)
     );
   }
 }

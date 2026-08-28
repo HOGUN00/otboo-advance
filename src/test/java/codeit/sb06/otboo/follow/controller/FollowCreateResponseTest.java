@@ -1,6 +1,8 @@
 package codeit.sb06.otboo.follow.controller;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static codeit.sb06.otboo.security.SecurityTestFixtures.userDto;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -15,15 +17,21 @@ import codeit.sb06.otboo.follow.dto.FollowerDto;
 import codeit.sb06.otboo.follow.service.FollowService;
 import codeit.sb06.otboo.security.jwt.JwtAuthenticationFilter;
 import codeit.sb06.otboo.security.jwt.JwtTokenProvider;
+import codeit.sb06.otboo.security.user.OtbooUserDetails;
+import codeit.sb06.otboo.user.entity.Role;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.Map;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -49,6 +57,11 @@ public class FollowCreateResponseTest {
   @Autowired
   ObjectMapper objectMapper;
 
+  @AfterEach
+  void clearAuthentication() {
+    SecurityContextHolder.clearContext();
+  }
+
   @Test
   void follow_success_201response() throws Exception {
 
@@ -65,7 +78,8 @@ public class FollowCreateResponseTest {
           new FollowerDto(followerId, "테스트 팔로워", "test2")
       );
 
-      when(followService.createFollow(any(FollowCreateRequest.class)))
+      authenticate(followerId);
+      when(followService.createFollow(eq(followerId), any(FollowCreateRequest.class)))
           .thenReturn(response);
 
       //then
@@ -88,7 +102,8 @@ public class FollowCreateResponseTest {
 
     FollowCreateRequest request = new FollowCreateRequest(followeeId, followerId);
 
-    when(followService.createFollow(any(FollowCreateRequest.class)))
+    authenticate(followerId);
+    when(followService.createFollow(eq(followerId), any(FollowCreateRequest.class)))
         .thenThrow(new SelfFollowDeniedException());
 
     mockMvc.perform(post("/api/follows")
@@ -113,7 +128,8 @@ public class FollowCreateResponseTest {
 
     FollowCreateRequest request = new FollowCreateRequest(followeeId, followerId);
 
-    when(followService.createFollow(any(FollowCreateRequest.class)))
+    authenticate(followerId);
+    when(followService.createFollow(eq(followerId), any(FollowCreateRequest.class)))
         .thenThrow(new UserNotFoundException());
 
     //then
@@ -127,5 +143,13 @@ public class FollowCreateResponseTest {
         .andExpect(jsonPath("$.message")
             .value("User not found"))
         .andExpect(jsonPath("$.details").exists());
+  }
+
+  private void authenticate(UUID userId) {
+    OtbooUserDetails principal = new OtbooUserDetails(
+        userDto(userId, Role.USER), "password", Map.of());
+    SecurityContextHolder.getContext().setAuthentication(
+        UsernamePasswordAuthenticationToken.authenticated(
+            principal, principal.getPassword(), principal.getAuthorities()));
   }
 }
