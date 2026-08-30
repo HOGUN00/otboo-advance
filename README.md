@@ -21,12 +21,12 @@
 
 팀 프로젝트에서 **실시간 DM 및 알림 시스템**을 담당했습니다.
 
-| 기능         | 핵심 기술                        | 설명                       |
-| ---------- | ---------------------------- | ------------------------ |
-| 실시간 1:1 DM | WebSocket + Redis Streams    | 다중 서버 환경 세션 불일치 해결       |
-| 실시간 알림     | SSE + Redis Streams          | 단방향 알림, 재연결 시 미수신 이벤트 보정 |
-| 대용량 알림 통계  | Spring Batch + ShedLock      | 알림 통계 배치, 다중 서버 중복 실행 방지    |
-| 장애 대응      | Resilience4j Circuit Breaker | Redis 장애 전파 차단           |
+| 담당 영역 | 핵심 기술·구현 |
+| --- | --- |
+| 실시간 1:1 DM | WebSocket · Redis Streams · 다중 서버 전달 |
+| 실시간 알림 | SSE · Redis Streams · 재연결 보정 |
+| 알림 통계 배치 | Spring Batch · ShedLock |
+| 장애 대응 | Resilience4j Circuit Breaker |
 
 ---
 
@@ -84,29 +84,6 @@ flowchart LR
 ```
 
 > 가독성을 위해 PEL 기반 실패 재처리와 복구 스케줄러는 위 흐름에서 생략했습니다.
-
----
-
-## 🗂️ 프로젝트 구조
-
-도메인별 패키지 안에서 Controller, Service, Repository 계층을 분리하고 있습니다.
-
-```text
-src/main/java/codeit/sb06/otboo
-├── clothes       # 의상 관리 및 날씨 기반 추천
-├── feed          # OOTD 피드
-├── comment       # 피드 댓글
-├── follow        # 사용자 팔로우
-├── message       # WebSocket DM 및 Redis Streams
-├── notification  # SSE 알림, Redis Streams 및 배치
-├── user          # 사용자 및 인증
-├── profile       # 프로필 및 S3 이미지
-├── weather       # 날씨·위치 외부 API 연동
-├── security      # JWT, OAuth2 및 권한 검증
-├── common        # 공통 스트림 복구 스케줄러
-├── config        # 애플리케이션 설정
-└── exception     # 도메인별 예외 처리
-```
 
 ---
 
@@ -168,6 +145,29 @@ SonarQube를 GitHub Actions와 연동하여 PR 단위로 품질을 자동 검증
 | Code Quality   | SonarQube Cloud                                   |
 | API Docs       | Swagger (Springdoc)                               |
 | Test           | JUnit 5, Mockito, EasyRandom                      |
+
+---
+
+## 🗂️ 프로젝트 구조
+
+도메인별 패키지 안에서 Controller, Service, Repository 계층을 분리하고 있습니다.
+
+```text
+src/main/java/codeit/sb06/otboo
+├── clothes       # 의상 관리 및 날씨 기반 추천
+├── feed          # OOTD 피드
+├── comment       # 피드 댓글
+├── follow        # 사용자 팔로우
+├── message       # WebSocket DM 및 Redis Streams
+├── notification  # SSE 알림, Redis Streams 및 배치
+├── user          # 사용자 및 인증
+├── profile       # 프로필 및 S3 이미지
+├── weather       # 날씨·위치 외부 API 연동
+├── security      # JWT, OAuth2 및 권한 검증
+├── common        # 공통 스트림 복구 스케줄러
+├── config        # 애플리케이션 설정
+└── exception     # 도메인별 예외 처리
+```
 
 ---
 
