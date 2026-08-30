@@ -17,13 +17,6 @@
 
 ---
 
-## 🏗️ 시스템 아키텍처
-
-> <img width="1800" height="1125" alt="otboo-architecture" src="https://github.com/user-attachments/assets/5994d221-7de7-4a61-88fc-431e95684506" />
-
-
----
-
 ## 🙋 담당 기능 요약
 
 팀 프로젝트에서 **실시간 DM 및 알림 시스템**을 담당했습니다.
@@ -34,6 +27,86 @@
 | 실시간 알림     | SSE + Redis Streams          | 단방향 알림, 재연결 시 미수신 이벤트 보정 |
 | 대용량 알림 통계  | Spring Batch + ShedLock      | 알림 통계 배치, 다중 서버 중복 실행 방지    |
 | 장애 대응      | Resilience4j Circuit Breaker | Redis 장애 전파 차단           |
+
+---
+
+## 🏗️ 시스템 아키텍처
+
+> <img width="1800" height="1125" alt="otboo-architecture" src="https://github.com/user-attachments/assets/5994d221-7de7-4a61-88fc-431e95684506" />
+
+---
+
+## 🔄 핵심 처리 흐름
+
+### 실시간 DM 처리 흐름
+
+메시지는 먼저 PostgreSQL에 저장합니다. 트랜잭션 커밋 후 Redis Streams에 발행하고, 각 애플리케이션 서버가 독립된 Consumer Group으로 메시지를 수신하여 해당 서버에 연결된 구독자에게 전달합니다.
+
+```mermaid
+flowchart LR
+    Sender[발신자] -->|STOMP 메시지 전송| WS[WebSocket 컨트롤러]
+    WS --> Service[DM 서비스]
+    Service -->|메시지 저장| DB[(PostgreSQL)]
+    Service -->|애플리케이션 이벤트| Listener[DM 이벤트 리스너]
+    Listener -->|커밋 후 Redis Streams에 발행| Stream[(Redis Streams)]
+
+    Stream -->|서버별 Consumer Group| App1[애플리케이션 서버 A]
+    Stream -->|서버별 Consumer Group| App2[애플리케이션 서버 B]
+    App1 -->|STOMP 메시지 전달| Receiver1[서버 A 연결 구독자]
+    App2 -->|STOMP 메시지 전달| Receiver2[서버 B 연결 구독자]
+    App1 -->|처리 후 ACK| Stream
+    App2 -->|처리 후 ACK| Stream
+```
+
+### 실시간 알림 및 재연결 보정 흐름
+
+도메인 트랜잭션이 커밋되면 알림을 별도 트랜잭션으로 생성합니다. 재연결 보정을 위해 사용자별 최근 알림을 Redis List에 최대 50개, 5일 TTL로 캐시한 뒤 Redis Streams로 발행합니다. 각 서버는 자신에게 연결된 사용자에게 SSE로 알림을 전송하며, 재접속 시에는 `Last-Event-ID` 이후의 누락 알림을 다시 전송합니다. 캐시 미스 시에는 PostgreSQL에서 최근 알림을 조회해 캐시를 복구합니다.
+
+```mermaid
+flowchart LR
+    Domain[DM·피드·팔로우 등] -->|트랜잭션 커밋 후 이벤트 처리| Listener[알림 이벤트 리스너]
+    Listener -->|1. 별도 트랜잭션으로 알림 저장| DB[(PostgreSQL)]
+    Listener -->|2. 최근 알림 캐싱| Cache[(Redis List 기반 최근 알림 캐시)]
+    Listener -->|3. Redis Streams에 알림 발행| Stream[(Redis Streams)]
+
+    Stream -->|서버별 Consumer Group| ConsumerA[애플리케이션 서버 A]
+    Stream -->|서버별 Consumer Group| ConsumerB[애플리케이션 서버 B]
+    ConsumerA -->|SSE 알림 전송| ClientA[서버 A 연결 사용자]
+    ConsumerB -->|SSE 알림 전송| ClientB[서버 B 연결 사용자]
+    ConsumerA -->|처리 후 ACK| Stream
+    ConsumerB -->|처리 후 ACK| Stream
+
+    ClientA -.->|Last-Event-ID로 재연결| Replay[SSE 재연결 처리]
+    Replay -.->|이후 알림 조회| Cache
+    Cache -.->|캐시 미스| DB
+    Cache -.->|누락 알림| Replay
+    Replay -.->|재전송| ClientA
+```
+
+> 가독성을 위해 PEL 기반 실패 재처리와 복구 스케줄러는 위 흐름에서 생략했습니다.
+
+---
+
+## 🗂️ 프로젝트 구조
+
+도메인별 패키지 안에서 Controller, Service, Repository 계층을 분리하고 있습니다.
+
+```text
+src/main/java/codeit/sb06/otboo
+├── clothes       # 의상 관리 및 날씨 기반 추천
+├── feed          # OOTD 피드
+├── comment       # 피드 댓글
+├── follow        # 사용자 팔로우
+├── message       # WebSocket DM 및 Redis Streams
+├── notification  # SSE 알림, Redis Streams 및 배치
+├── user          # 사용자 및 인증
+├── profile       # 프로필 및 S3 이미지
+├── weather       # 날씨·위치 외부 API 연동
+├── security      # JWT, OAuth2 및 권한 검증
+├── common        # 공통 스트림 복구 스케줄러
+├── config        # 애플리케이션 설정
+└── exception     # 도메인별 예외 처리
+```
 
 ---
 
