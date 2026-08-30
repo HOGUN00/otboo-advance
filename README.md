@@ -136,7 +136,7 @@ SonarQube를 GitHub Actions와 연동하여 PR 단위로 품질을 자동 검증
 | Language       | Java 17                                           |
 | Framework      | Spring Boot 3.5.10, Spring Security, Spring Batch    |
 | Database       | PostgreSQL, Redis                                 |
-| Message Broker | Redis Streams                                     |
+| Messaging      | WebSocket (STOMP), SSE, Redis Streams             |
 | Data Access    | Spring Data JPA, QueryDSL                         |
 | Cloud          | AWS ECS (Fargate), ECR, RDS, ElastiCache, S3, ALB |
 | Load Test      | k6 (WebSocket), xk6-sse (SSE)                     |
