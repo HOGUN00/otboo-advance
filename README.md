@@ -94,7 +94,7 @@ SonarQube를 GitHub Actions와 연동하여 PR 단위로 품질을 자동 검증
 | CI/CD          | GitHub Actions                                    |
 | Code Quality   | SonarQube Cloud                                   |
 | API Docs       | Swagger (Springdoc)                               |
-| Test           | EasyRandom                                        |
+| Test           | JUnit 5, Mockito, EasyRandom                      |
 
 ---
 
