@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.message.publisher;
 
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import codeit.sb06.otboo.message.dto.DirectMessageDto;
 import codeit.sb06.otboo.util.EasyRandomUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -20,6 +21,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DirectMessageRedisPublisherTest {
 
+    private static final String DM_STREAM_KEY = "dm:stream";
+
     private final EasyRandom easyRandom = EasyRandomUtil.getRandom();
 
     @Mock
@@ -32,14 +35,13 @@ class DirectMessageRedisPublisherTest {
     private ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
-    private String dmStreamKey;
-
     private DirectMessageRedisPublisher directMessageRedisPublisher;
 
     @BeforeEach
     void setUp() {
-        dmStreamKey = "dm:stream";
-        directMessageRedisPublisher = new DirectMessageRedisPublisher(redisTemplate, objectMapper, dmStreamKey);
+        RedisStreamProperties streamProperties =
+                new RedisStreamProperties("notification:stream", DM_STREAM_KEY);
+        directMessageRedisPublisher = new DirectMessageRedisPublisher(redisTemplate, objectMapper, streamProperties);
         doReturn(streamOps).when(redisTemplate).opsForStream();
     }
 

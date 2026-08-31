@@ -1,10 +1,10 @@
 package codeit.sb06.otboo.message.scheduler;
 
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Range;
@@ -36,14 +36,15 @@ class DmStreamRecoverySchedulerTest {
     private StreamOperations<String, String, String> streamOps;
     @Mock
     private SimpMessagingTemplate messagingTemplate;
-    @InjectMocks
     private DmStreamRecoveryScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(scheduler, "dmStreamKey", dmStreamKey);
+        RedisStreamProperties streamProperties =
+                new RedisStreamProperties("test-noti-stream", dmStreamKey);
+        scheduler = new DmStreamRecoveryScheduler(
+                redisTemplate, null, serverId, streamProperties, messagingTemplate);
         ReflectionTestUtils.setField(scheduler, "groupName", groupName);
-        ReflectionTestUtils.setField(scheduler, "serverId", serverId);
 
         doReturn(streamOps).when(redisTemplate).opsForStream();
     }

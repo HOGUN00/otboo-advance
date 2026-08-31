@@ -1,6 +1,7 @@
 package codeit.sb06.otboo.message.scheduler;
 
 import codeit.sb06.otboo.common.scheduler.AbstractStreamRecoveryScheduler;
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
 import lombok.extern.slf4j.Slf4j;
@@ -17,23 +18,23 @@ import java.time.Duration;
 public class DmStreamRecoveryScheduler extends AbstractStreamRecoveryScheduler {
 
     private final SimpMessagingTemplate messagingTemplate;
-    private final String dmStreamKey;
+    private final RedisStreamProperties streamProperties;
 
     public DmStreamRecoveryScheduler(
             StringRedisTemplate redisTemplate,
             CircuitBreakerRegistry circuitBreakerRegistry,
             String serverId,
-            String dmStreamKey,
+            RedisStreamProperties streamProperties,
             SimpMessagingTemplate messagingTemplate) {
 
         super(redisTemplate, circuitBreakerRegistry, serverId);
-        this.dmStreamKey = dmStreamKey;
+        this.streamProperties = streamProperties;
         this.messagingTemplate = messagingTemplate;
     }
 
     @Override
     protected String getStreamKey() {
-        return dmStreamKey;
+        return streamProperties.directMessageKey();
     }
 
     @Override

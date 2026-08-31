@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.message.publisher;
 
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import codeit.sb06.otboo.exception.message.DirectMessageMappingException;
 import codeit.sb06.otboo.message.dto.DirectMessageDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -22,11 +23,12 @@ public class DirectMessageRedisPublisher {
     public static final int COUNT = 30000;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-    private final String dmStreamKey;
+    private final RedisStreamProperties streamProperties;
 
     public void publish(DirectMessageDto dto, String destination) {
 
         try {
+            String dmStreamKey = streamProperties.directMessageKey();
             String jsonPayload = objectMapper.writeValueAsString(dto);
             Map<String, String> map = Map.of(
                     "payload", jsonPayload,

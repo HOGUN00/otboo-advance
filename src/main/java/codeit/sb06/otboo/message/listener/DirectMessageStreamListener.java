@@ -1,6 +1,6 @@
 package codeit.sb06.otboo.message.listener;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -16,19 +16,20 @@ import org.springframework.stereotype.Component;
 public class DirectMessageStreamListener implements StreamListener<String, MapRecord<String, String, String>> {
 
     private final StringRedisTemplate redisTemplate;
-    private final String dmStreamKey;
+    private final RedisStreamProperties streamProperties;
     private final String serverId;
     private final SimpMessagingTemplate messagingTemplate;
 
     @PostConstruct
     public void debug() {
         log.debug(">>>> [리스너 체크] 그룹명: group-dm-{}", serverId);
-        log.debug(">>>> [리스너 체크] 스트림 키: {}", dmStreamKey);
+        log.debug(">>>> [리스너 체크] 스트림 키: {}", streamProperties.directMessageKey());
     }
 
     @Override
     public void onMessage(MapRecord<String, String, String> record) {
 
+        String dmStreamKey = streamProperties.directMessageKey();
         log.debug("dm 수신: [MessageId: {}, Stream: {}]", record.getId(), dmStreamKey);
 
         try {

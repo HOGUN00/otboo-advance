@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.notification.publisher;
 
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.publisher.impl.RedisNotificationPublisherImpl;
 import codeit.sb06.otboo.util.EasyRandomUtil;
@@ -23,6 +24,8 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class RedisNotificationPublisherTest {
 
+    private static final String NOTIFICATION_STREAM_KEY = "notification:stream";
+
     private final EasyRandom easyRandom = EasyRandomUtil.getRandom();
 
     @Mock
@@ -35,14 +38,13 @@ class RedisNotificationPublisherTest {
     private ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
 
-    private String notificationStreamKey;
-
     private RedisNotificationPublisherImpl redisNotificationPublisher;
 
     @BeforeEach
     void setUp() {
-        notificationStreamKey = "notification:stream";
-        redisNotificationPublisher = new RedisNotificationPublisherImpl(redisTemplate, objectMapper, notificationStreamKey);
+        RedisStreamProperties streamProperties =
+                new RedisStreamProperties(NOTIFICATION_STREAM_KEY, "direct-message:stream");
+        redisNotificationPublisher = new RedisNotificationPublisherImpl(redisTemplate, objectMapper, streamProperties);
         doReturn(streamOps).when(redisTemplate).opsForStream();
     }
 

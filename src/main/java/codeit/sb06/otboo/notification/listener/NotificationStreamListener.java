@@ -1,6 +1,7 @@
 package codeit.sb06.otboo.notification.listener;
 
 
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import codeit.sb06.otboo.notification.service.SseService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -18,19 +19,20 @@ import java.util.UUID;
 public class NotificationStreamListener implements StreamListener<String, MapRecord<String, String, String>> {
 
     private final StringRedisTemplate redisTemplate;
-    private final String notificationStreamKey;
+    private final RedisStreamProperties streamProperties;
     private final String serverId;
     private final SseService sseService;
 
     @PostConstruct
     public void debug() {
         log.debug(">>>> [리스너 체크] 그룹명: group-noti-{}", serverId);
-        log.debug(">>>> [리스너 체크] 스트림 키: {}", notificationStreamKey);
+        log.debug(">>>> [리스너 체크] 스트림 키: {}", streamProperties.notificationKey());
     }
 
     @Override
     public void onMessage(MapRecord<String, String, String> record) {
 
+        String notificationStreamKey = streamProperties.notificationKey();
         log.debug("알림 수신: [MessageId: {}, Stream: {}]", record.getId(), notificationStreamKey);
 
         try {

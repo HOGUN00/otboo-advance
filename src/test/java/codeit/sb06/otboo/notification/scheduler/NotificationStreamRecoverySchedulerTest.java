@@ -1,11 +1,11 @@
 package codeit.sb06.otboo.notification.scheduler;
 
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import codeit.sb06.otboo.notification.service.SseService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Range;
@@ -41,15 +41,15 @@ class NotificationStreamRecoverySchedulerTest {
 
     @Mock
     private SseService sseService;
-
-    @InjectMocks
     private NotificationStreamRecoveryScheduler scheduler;
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(scheduler, "notificationStreamKey", notificationStreamKey);
+        RedisStreamProperties streamProperties =
+                new RedisStreamProperties(notificationStreamKey, "test-dm-stream");
+        scheduler = new NotificationStreamRecoveryScheduler(
+                redisTemplate, null, serverId, streamProperties, sseService);
         ReflectionTestUtils.setField(scheduler, "groupName", groupName);
-        ReflectionTestUtils.setField(scheduler, "serverId", serverId);
 
         doReturn(streamOps).when(redisTemplate).opsForStream();
     }

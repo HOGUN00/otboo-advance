@@ -150,6 +150,11 @@ openweather:
   key: ${OPENWEATHER_API_KEY:your-openweather-api-key}
 
 otboo:
+  redis:
+    stream:
+      notification-key: notification:stream
+      direct-message-key: direct-message:stream
+
   jwt:
     access-token:
       secret: ${JWT_ACCESS_SECRET:your-access-token-secret-key-here-make-it-long-and-random}

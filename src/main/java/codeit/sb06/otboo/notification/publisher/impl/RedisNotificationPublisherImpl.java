@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.notification.publisher.impl;
 
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import codeit.sb06.otboo.exception.notification.NotificationMappingException;
 import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.publisher.RedisNotificationPublisher;
@@ -27,12 +28,13 @@ public class RedisNotificationPublisherImpl implements RedisNotificationPublishe
     public static final int COUNT = 30000;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
-    private final String notificationStreamKey;
+    private final RedisStreamProperties streamProperties;
 
     @Override
     public void publish(NotificationDto dto) {
 
         try {
+            String notificationStreamKey = streamProperties.notificationKey();
             String jsonPayload = objectMapper.writeValueAsString(dto);
             Map<String, String> map = Map.of(
                     "payload", jsonPayload,
@@ -55,6 +57,7 @@ public class RedisNotificationPublisherImpl implements RedisNotificationPublishe
     public void publishAll(List<NotificationDto> dtoList) {
         if (dtoList == null || dtoList.isEmpty()) return;
 
+        String notificationStreamKey = streamProperties.notificationKey();
         redisTemplate.executePipelined(new SessionCallback<Object>() {
             @Override
             @SuppressWarnings("unchecked")

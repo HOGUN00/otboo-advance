@@ -1,6 +1,7 @@
 package codeit.sb06.otboo.notification.scheduler;
 
 import codeit.sb06.otboo.common.scheduler.AbstractStreamRecoveryScheduler;
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import codeit.sb06.otboo.notification.service.SseService;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -18,23 +19,23 @@ import java.util.UUID;
 public class NotificationStreamRecoveryScheduler extends AbstractStreamRecoveryScheduler {
 
     private final SseService sseService;
-    private final String notificationStreamKey;
+    private final RedisStreamProperties streamProperties;
 
     public NotificationStreamRecoveryScheduler(
             StringRedisTemplate redisTemplate,
             CircuitBreakerRegistry circuitBreakerRegistry,
             String serverId,
-            String notificationStreamKey,
+            RedisStreamProperties streamProperties,
             SseService sseService) {
 
         super(redisTemplate, circuitBreakerRegistry, serverId);
-        this.notificationStreamKey = notificationStreamKey;
+        this.streamProperties = streamProperties;
         this.sseService = sseService;
     }
 
     @Override
     protected String getStreamKey() {
-        return notificationStreamKey;
+        return streamProperties.notificationKey();
     }
 
     @Override

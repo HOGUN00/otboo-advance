@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.message.listener;
 
+import codeit.sb06.otboo.config.RedisStreamProperties;
 import codeit.sb06.otboo.message.dto.DirectMessageRedisDto;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -26,8 +27,9 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class DirectMessageRedisStreamListenerTest {
 
-    private final String streamKey = "dm:stream";
-    private final String serverId = "node-1";
+    private static final String STREAM_KEY = "dm:stream";
+    private static final String SERVER_ID = "node-1";
+
     @Mock
     private StringRedisTemplate redisTemplate;
     @Mock
@@ -42,8 +44,10 @@ class DirectMessageRedisStreamListenerTest {
     @BeforeEach
     void setUp() {
         // 생성자 주입 (Lombok @RequiredArgsConstructor 대응)
+        RedisStreamProperties streamProperties =
+                new RedisStreamProperties("notification:stream", STREAM_KEY);
         listener = new DirectMessageStreamListener(
-                redisTemplate, streamKey, serverId, messagingTemplate
+                redisTemplate, streamProperties, SERVER_ID, messagingTemplate
         );
     }
 
@@ -60,7 +64,7 @@ class DirectMessageRedisStreamListenerTest {
         ));
 
         MapRecord<String, String, String> record = StreamRecords.newRecord()
-                .in(streamKey)
+                .in(STREAM_KEY)
                 .ofMap(Map.of("payload", jsonPayload, "destination", destination))
                 .withId(recordId);
 
