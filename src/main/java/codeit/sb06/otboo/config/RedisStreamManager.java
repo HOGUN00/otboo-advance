@@ -7,11 +7,8 @@ import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.stream.ReadOffset;
-import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
-
-import java.util.Map;
 
 @Slf4j
 @Component
@@ -30,14 +27,6 @@ public class RedisStreamManager {
 
     private void createStreamAndGroup(String streamKey, String groupName) {
         try {
-            // 스트림이 없으면 생성
-            if (!redisTemplate.hasKey(streamKey)) {
-                RecordId id = redisTemplate.opsForStream().add(streamKey, Map.of("_init", "true"));
-                log.debug("[Redis Stream] 스트림 생성 완료: {}", streamKey);
-                if (id != null) {
-                    redisTemplate.opsForStream().delete(streamKey, id);
-                }
-            }
             redisTemplate.opsForStream().createGroup(streamKey, ReadOffset.latest(), groupName);
             log.debug("[Redis Stream] 소비자 그룹 생성 성공: {}", groupName);
 

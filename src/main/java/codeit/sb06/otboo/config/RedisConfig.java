@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.data.redis.RedisSystemException;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.Consumer;
@@ -42,6 +43,7 @@ public class RedisConfig {
     }
 
     @Bean
+    @DependsOn("redisStreamManager")
     public StreamMessageListenerContainer<String, MapRecord<String, String, String>> container(
             RedisConnectionFactory connectionFactory,
             NotificationStreamListener notificationStreamListener,
