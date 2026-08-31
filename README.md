@@ -83,7 +83,32 @@ flowchart LR
     Replay -.->|재전송| ClientA
 ```
 
-> 가독성을 위해 PEL 기반 실패 재처리와 복구 스케줄러는 위 흐름에서 생략했습니다.
+> 위 다이어그램은 정상 처리 및 재연결 흐름을 나타냅니다. PEL 기반 실패 재처리는 아래에서 확인할 수 있습니다.
+
+<details>
+<summary>Redis Streams PEL 기반 실패 복구 흐름 보기</summary>
+
+```mermaid
+flowchart TD
+    Consumer[Redis Streams 리스너] -->|처리 실패 · 미ACK| PEL[(PEL: Pending Entries List)]
+    Scheduler[DM·알림별 복구 스케줄러] -->|대기 메시지 조회| PEL
+    PEL --> Idle{최소 대기시간 경과?}
+    Idle -->|아니요 · 다음 주기까지 유지| PEL
+    Idle -->|예| Count{누적 전달 횟수 5회 초과?}
+    Count -->|예| Stop[ACK 후 실시간 전달 재시도 종료]
+    Count -->|아니요| Claim["같은 서버의 재처리 Consumer로 인계 (XCLAIM)"]
+    Claim --> Reprocess[DM은 STOMP · 알림은 SSE로 재전송]
+    Reprocess -->|성공| Ack[ACK]
+    Reprocess -->|실패 · 미ACK| PEL
+
+    Scheduler -.->|복구 중 Redis 호출 실패 누적| CB[Circuit Breaker OPEN]
+    CB -.-> Pause[복구 작업 일시 중단]
+    Pause -.->|HALF_OPEN 시험 호출| Scheduler
+```
+
+> **재처리 정책과 보장 범위:** PostgreSQL을 메시지의 원본 저장소로 두고 Redis Streams는 서버 간 실시간 전달에 사용합니다. 일시적인 전달 실패는 PEL에서 재처리하지만, 반복 실패 이벤트는 원본 데이터가 DB에 남아 있으므로 별도 DLQ로 격리하지 않고 누적 전달 횟수가 5회를 초과하면 ACK 처리해 PEL 누적을 방지했습니다. 따라서 Redis 장애나 WebSocket 연결 단절 중 DM의 실시간 전달까지 보장하지는 않으며, 저장된 메시지는 이후 채팅방 조회를 통해 확인할 수 있습니다.
+
+</details>
 
 ---
 
