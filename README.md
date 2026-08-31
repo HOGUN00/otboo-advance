@@ -118,7 +118,7 @@ flowchart TD
 
 ### 팀 프로젝트 구현
 
-- [다중 서버 실시간 메시징](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14): 서버별 로컬 연결로 다른 서버의 사용자에게 DM·알림을 전달할 수 없음 → Redis Streams로 메시지를 공유하고 해당 사용자가 연결된 서버에서 최종 전송
+- [다중 서버 실시간 메시징](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14): 서버별 로컬 연결로 다른 서버의 사용자에게 DM·알림을 전달할 수 없음 → 사용자-서버 연결 위치를 별도 관리하는 대신 Redis Streams로 모든 서버에 메시지를 공유하고 해당 사용자가 연결된 서버에서만 최종 전송
 - **Redis Streams 선택·실패 재처리 및 장애 대응**: [메시지 브로커 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f4ae68c13faaa6d41d)에서 Consumer 처리 확인과 실패 재처리를 기준으로 Redis Streams 선택 → [재처리·장애 대응](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f0b479f9c41a95c359)에서 ACK·PEL 기반 재처리 스케줄러와 Circuit Breaker 적용
 - **테스트 검증**: 핵심 비즈니스 로직은 Mockito 기반 단위 테스트, JPA Repository와 Redis 관련 동작은 슬라이스 테스트, 알림 배치 흐름은 통합 테스트로 검증. EasyRandom으로 테스트 데이터 구성
 
