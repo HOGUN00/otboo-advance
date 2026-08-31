@@ -60,7 +60,7 @@ flowchart LR
 
 ### 실시간 알림 및 재연결 보정 흐름
 
-도메인 트랜잭션이 커밋되면 알림을 별도 트랜잭션으로 생성합니다. 재연결 보정을 위해 사용자별 최근 알림을 Redis List에 최대 50개, 5일 TTL로 캐시한 뒤 Redis Streams로 발행합니다. 각 서버는 자신에게 연결된 사용자에게 SSE로 알림을 전송하며, 재접속 시에는 `Last-Event-ID` 이후의 누락 알림을 다시 전송합니다. 캐시 미스 시에는 PostgreSQL에서 최근 알림을 조회해 캐시를 복구합니다.
+도메인 트랜잭션이 커밋되면 알림을 별도 트랜잭션으로 생성합니다. 재연결 보정을 위해 사용자별 최근 알림을 Redis List에 최대 50개, 5일 TTL로 캐시한 뒤 Redis Streams로 발행합니다. 각 서버는 자신에게 연결된 사용자에게 SSE로 알림을 전송하며, 재접속 시에는 `lastEventId` 이후의 누락 알림을 다시 전송합니다. 캐시 미스 시에는 PostgreSQL에서 최근 알림을 조회해 캐시를 복구합니다.
 
 ```mermaid
 flowchart LR
@@ -76,7 +76,7 @@ flowchart LR
     ConsumerA -->|처리 후 ACK| Stream
     ConsumerB -->|처리 후 ACK| Stream
 
-    ClientA -.->|Last-Event-ID로 재연결| Replay[SSE 재연결 처리]
+    ClientA -.->|lastEventId로 재연결| Replay[SSE 재연결 처리]
     Replay -.->|이후 알림 조회| Cache
     Cache -.->|캐시 미스| DB
     Cache -.->|누락 알림| Replay
