@@ -13,15 +13,20 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.ChannelInterceptor;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 
+import java.security.Principal;
 import java.util.UUID;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class WebSocketChannelInterceptor implements ChannelInterceptor {
+
+    private static final String BROKER_PREFIX = "/sub";
+    private static final String DM_DESTINATION_PREFIX = "/sub/direct-messages_";
 
     private final JwtTokenProvider jwtTokenProvider;
     private final JwtRegistry jwtRegistry;
@@ -57,9 +62,53 @@ public class WebSocketChannelInterceptor implements ChannelInterceptor {
             }
 
             accessor.setUser(() -> userId.toString());
+        } else if (StompCommand.SEND.equals(command)) {
+            authorizeSend(accessor.getDestination());
+        } else if (StompCommand.SUBSCRIBE.equals(command)) {
+            authorizeSubscribe(accessor.getUser(), accessor.getDestination());
         }
 
         return message;
+    }
+
+    private void authorizeSend(String destination) {
+        if (isBrokerDestination(destination)) {
+            throw new AccessDeniedException("브로커 destination으로 직접 전송할 수 없습니다.");
+        }
+    }
+
+    private void authorizeSubscribe(Principal principal, String destination) {
+        if (!isBrokerDestination(destination)) {
+            return;
+        }
+
+        if (principal == null || !StringUtils.hasText(destination)
+                || !StringUtils.hasText(principal.getName())
+                || !destination.startsWith(DM_DESTINATION_PREFIX)) {
+            throw new AccessDeniedException("구독할 수 없는 destination입니다.");
+        }
+
+        String[] participantIds = destination.substring(DM_DESTINATION_PREFIX.length()).split("_", -1);
+        if (participantIds.length != 2) {
+            throw new AccessDeniedException("유효하지 않은 DM destination입니다.");
+        }
+
+        try {
+            UUID authenticatedUserId = UUID.fromString(principal.getName());
+            UUID firstParticipantId = UUID.fromString(participantIds[0]);
+            UUID secondParticipantId = UUID.fromString(participantIds[1]);
+
+            if (!authenticatedUserId.equals(firstParticipantId)
+                    && !authenticatedUserId.equals(secondParticipantId)) {
+                throw new AccessDeniedException("참여하지 않은 DM은 구독할 수 없습니다.");
+            }
+        } catch (IllegalArgumentException e) {
+            throw new AccessDeniedException("유효하지 않은 DM destination입니다.", e);
+        }
+    }
+
+    private boolean isBrokerDestination(String destination) {
+        return destination != null && destination.startsWith(BROKER_PREFIX);
     }
 
     @Override
