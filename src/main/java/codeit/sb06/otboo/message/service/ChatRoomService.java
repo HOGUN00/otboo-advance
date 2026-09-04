@@ -1,10 +1,9 @@
 package codeit.sb06.otboo.message.service;
 
 import codeit.sb06.otboo.message.entity.ChatRoom;
-
-import java.util.UUID;
+import codeit.sb06.otboo.user.entity.User;
 
 public interface ChatRoomService {
 
-    ChatRoom getOrCreatePrivateRoom(UUID senderId, UUID receiverId);
+    ChatRoom getOrCreatePrivateRoom(User sender, User receiver);
 }

@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.message.service;
 
+import codeit.sb06.otboo.exception.user.UserNotFoundException;
 import codeit.sb06.otboo.message.dto.DirectMessageDto;
 import codeit.sb06.otboo.message.dto.request.DirectMessageCreateRequest;
 import codeit.sb06.otboo.message.dto.response.DirectMessageDtoCursorResponse;
@@ -31,11 +32,14 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class DirectMessageServiceImplTest {
@@ -73,11 +77,13 @@ class DirectMessageServiceImplTest {
         // given
         DirectMessageCreateRequest request = easyRandom.nextObject(DirectMessageCreateRequest.class);
 
-        given(userRepository.findById(request.senderId()))
-                .willReturn(Optional.of(mock(User.class)));
-        given(userRepository.findById(request.receiverId()))
-                .willReturn(Optional.of(mock(User.class)));
-        given(chatRoomService.getOrCreatePrivateRoom(request.senderId(), request.receiverId()))
+        User sender = mock(User.class);
+        User receiver = mock(User.class);
+        given(sender.getId()).willReturn(request.senderId());
+        given(receiver.getId()).willReturn(request.receiverId());
+        given(userRepository.findAllById(any()))
+                .willReturn(List.of(sender, receiver));
+        given(chatRoomService.getOrCreatePrivateRoom(sender, receiver))
                 .willReturn(mock(ChatRoom.class));
         given(directMessageRepository.save(any(DirectMessage.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
@@ -91,6 +97,25 @@ class DirectMessageServiceImplTest {
                 () -> assertThat(dmDto).isNotNull(),
                 () -> assertThat(dmDto.content()).isEqualTo(request.content())
         );
+    }
+
+    @Test
+    @DisplayName("수신자가 존재하지 않으면 DM 생성에 실패한다")
+    void createDirectMessageWithMissingReceiverFails() {
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        DirectMessageCreateRequest request = new DirectMessageCreateRequest(
+                receiverId,
+                senderId,
+                "content");
+        User sender = mock(User.class);
+
+        given(sender.getId()).willReturn(senderId);
+        given(userRepository.findAllById(any())).willReturn(List.of(sender));
+
+        assertThatThrownBy(() -> directMessageService.create(senderId, request))
+                .isInstanceOf(UserNotFoundException.class);
+        verify(chatRoomService, never()).getOrCreatePrivateRoom(any(), any());
     }
 
     @Test

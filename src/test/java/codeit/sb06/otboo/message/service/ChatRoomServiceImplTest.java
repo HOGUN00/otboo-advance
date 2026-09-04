@@ -4,6 +4,7 @@ import codeit.sb06.otboo.message.entity.ChatMember;
 import codeit.sb06.otboo.message.entity.ChatRoom;
 import codeit.sb06.otboo.message.repository.ChatRoomRepository;
 import codeit.sb06.otboo.message.service.impl.ChatRoomServiceImpl;
+import codeit.sb06.otboo.user.entity.User;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,25 +37,29 @@ class ChatRoomServiceImplTest {
         // given
         UUID senderId = UUID.randomUUID();
         UUID receiverId = UUID.randomUUID();
+        User sender = mock(User.class);
+        User receiver = mock(User.class);
+        given(sender.getId()).willReturn(senderId);
+        given(receiver.getId()).willReturn(receiverId);
         String dmKey = ChatRoom.generateDmKey(senderId, receiverId);
 
         given(chatRoomRepository.findByDmKey(dmKey))
                 .willReturn(Optional.empty());
         given(chatRoomRepository.save(any(ChatRoom.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
-        given(chatMemberService.create(any(ChatRoom.class), eq(senderId)))
+        given(chatMemberService.create(any(ChatRoom.class), eq(sender)))
                 .willReturn(mock(ChatMember.class));
-        given(chatMemberService.create(any(ChatRoom.class), eq(receiverId)))
+        given(chatMemberService.create(any(ChatRoom.class), eq(receiver)))
                 .willReturn(mock(ChatMember.class));
 
         // when
-        ChatRoom createdChatRoom = chatRoomService.getOrCreatePrivateRoom(senderId, receiverId);
+        ChatRoom createdChatRoom = chatRoomService.getOrCreatePrivateRoom(sender, receiver);
 
         // then
         assertAll(
                 () -> assertThat(createdChatRoom.getDmKey()).isEqualTo(dmKey),
-                () -> verify(chatMemberService, times(1)).create(any(ChatRoom.class), eq(senderId)),
-                () -> verify(chatMemberService, times(1)).create(any(ChatRoom.class), eq(receiverId)),
+                () -> verify(chatMemberService, times(1)).create(any(ChatRoom.class), eq(sender)),
+                () -> verify(chatMemberService, times(1)).create(any(ChatRoom.class), eq(receiver)),
                 () -> verify(chatRoomRepository, times(1)).save(any(ChatRoom.class)),
                 () -> assertThat(createdChatRoom.getChatMembers()).hasSize(2)
         );
@@ -66,6 +71,10 @@ class ChatRoomServiceImplTest {
         // given
         UUID senderId = UUID.randomUUID();
         UUID receiverId = UUID.randomUUID();
+        User sender = mock(User.class);
+        User receiver = mock(User.class);
+        given(sender.getId()).willReturn(senderId);
+        given(receiver.getId()).willReturn(receiverId);
         String dmKey = ChatRoom.generateDmKey(senderId, receiverId);
         ChatRoom existingChatRoom = new ChatRoom(dmKey);
 
@@ -73,13 +82,13 @@ class ChatRoomServiceImplTest {
                 .willReturn(Optional.of(existingChatRoom));
 
         // when
-        ChatRoom chatRoom = chatRoomService.getOrCreatePrivateRoom(senderId, receiverId);
+        ChatRoom chatRoom = chatRoomService.getOrCreatePrivateRoom(sender, receiver);
 
         // then
         assertAll(
                 () -> assertThat(chatRoom).usingRecursiveComparison().isEqualTo(existingChatRoom), // 필드 비교
                 () -> verify(chatRoomRepository, never()).save(any(ChatRoom.class)),
-                () -> verify(chatMemberService, never()).create(any(ChatRoom.class), any(UUID.class))
+                () -> verify(chatMemberService, never()).create(any(ChatRoom.class), any(User.class))
         );
     }
 }

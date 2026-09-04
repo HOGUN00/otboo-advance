@@ -25,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Slf4j
@@ -48,12 +49,19 @@ public class DirectMessageServiceImpl implements DirectMessageService {
             throw new AccessDeniedException("발신자 정보가 일치하지 않습니다.");
         }
 
-        User sender = userRepository.findById(authenticatedSenderId)
+        List<User> participants = userRepository.findAllById(
+                List.of(authenticatedSenderId, request.receiverId()));
+
+        User sender = participants.stream()
+                .filter(user -> user.getId().equals(authenticatedSenderId))
+                .findFirst()
                 .orElseThrow(UserNotFoundException::new);
-        User receiver = userRepository.findById(request.receiverId())
+        User receiver = participants.stream()
+                .filter(user -> user.getId().equals(request.receiverId()))
+                .findFirst()
                 .orElseThrow(UserNotFoundException::new);
 
-        ChatRoom chatRoom = chatRoomService.getOrCreatePrivateRoom(authenticatedSenderId, request.receiverId());
+        ChatRoom chatRoom = chatRoomService.getOrCreatePrivateRoom(sender, receiver);
 
         DirectMessage dm = DirectMessage.builder()
                 .sender(sender)
