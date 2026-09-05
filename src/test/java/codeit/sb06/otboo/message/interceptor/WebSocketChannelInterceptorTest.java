@@ -20,6 +20,7 @@ import org.springframework.messaging.simp.stomp.StompCommand;
 import org.springframework.messaging.simp.stomp.StompHeaderAccessor;
 import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.messaging.support.MessageHeaderAccessor;
+import org.springframework.security.access.AccessDeniedException;
 
 import java.util.UUID;
 
@@ -85,6 +86,101 @@ class WebSocketChannelInterceptorTest {
     }
 
     @Test
+    @DisplayName("클라이언트가 broker destination으로 직접 SEND하면 거부한다")
+    void rejectDirectSendToBrokerDestination() {
+        // given
+        Message<byte[]> message = createStompMessage(
+                StompCommand.SEND,
+                "/sub/direct-messages_test",
+                UUID.randomUUID());
+
+        // when & then
+        assertThatThrownBy(() -> webSocketChannelInterceptor.preSend(message, channel))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("클라이언트가 application destination으로 SEND하면 허용한다")
+    void allowSendToApplicationDestination() {
+        // given
+        Message<byte[]> message = createStompMessage(
+                StompCommand.SEND,
+                "/pub/direct-messages_send",
+                UUID.randomUUID());
+
+        // when
+        Message<?> result = webSocketChannelInterceptor.preSend(message, channel);
+
+        // then
+        assertThat(result).isSameAs(message);
+    }
+
+    @Test
+    @DisplayName("로그인 사용자가 포함된 DM destination 구독은 허용한다")
+    void allowSubscribeToParticipatingDmDestination() {
+        // given
+        UUID authenticatedUserId = UUID.randomUUID();
+        UUID otherUserId = UUID.randomUUID();
+        String destination = "/sub/direct-messages_"
+                + authenticatedUserId + "_" + otherUserId;
+        Message<byte[]> message = createStompMessage(
+                StompCommand.SUBSCRIBE,
+                destination,
+                authenticatedUserId);
+
+        // when
+        Message<?> result = webSocketChannelInterceptor.preSend(message, channel);
+
+        // then
+        assertThat(result).isSameAs(message);
+    }
+
+    @Test
+    @DisplayName("로그인 사용자가 포함되지 않은 DM destination 구독은 거부한다")
+    void rejectSubscribeToNonParticipatingDmDestination() {
+        // given
+        UUID authenticatedUserId = UUID.randomUUID();
+        String destination = "/sub/direct-messages_"
+                + UUID.randomUUID() + "_" + UUID.randomUUID();
+        Message<byte[]> message = createStompMessage(
+                StompCommand.SUBSCRIBE,
+                destination,
+                authenticatedUserId);
+
+        // when & then
+        assertThatThrownBy(() -> webSocketChannelInterceptor.preSend(message, channel))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("UUID 형식이 아닌 DM destination 구독은 거부한다")
+    void rejectSubscribeToMalformedDmDestination() {
+        // given
+        Message<byte[]> message = createStompMessage(
+                StompCommand.SUBSCRIBE,
+                "/sub/direct-messages_invalid_destination",
+                UUID.randomUUID());
+
+        // when & then
+        assertThatThrownBy(() -> webSocketChannelInterceptor.preSend(message, channel))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    @DisplayName("wildcard broker destination 구독은 거부한다")
+    void rejectSubscribeToWildcardBrokerDestination() {
+        // given
+        Message<byte[]> message = createStompMessage(
+                StompCommand.SUBSCRIBE,
+                "/sub/**",
+                UUID.randomUUID());
+
+        // when & then
+        assertThatThrownBy(() -> webSocketChannelInterceptor.preSend(message, channel))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
     @DisplayName("메시지 예외 발생시 로그 테스트")
     void afterSendCompletionTest() {
         // given
@@ -101,5 +197,16 @@ class WebSocketChannelInterceptorTest {
 
         // then
         assertThat(listAppender.list).extracting(ILoggingEvent::getLevel).contains(Level.ERROR);
+    }
+
+    private Message<byte[]> createStompMessage(
+            StompCommand command,
+            String destination,
+            UUID userId
+    ) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(command);
+        accessor.setDestination(destination);
+        accessor.setUser(() -> userId.toString());
+        return MessageBuilder.createMessage(new byte[0], accessor.getMessageHeaders());
     }
 }

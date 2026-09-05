@@ -7,6 +7,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.TestConfiguration;
 import redis.embedded.RedisServer;
 
+/**
+ * Redis 관련 테스트에서 사용하는 Embedded Redis 설정이다.
+ * 전체 Spring 컨텍스트보다 Redis를 먼저 실행해야 하는 테스트에서는
+ * {@link EmbeddedRedisInitializer}를 사용한다.
+ */
 @Slf4j
 @TestConfiguration
 public class EmbeddedRedisConfig {
