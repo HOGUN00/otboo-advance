@@ -44,9 +44,9 @@ class ChatRoomServiceImplTest {
         String dmKey = ChatRoom.generateDmKey(senderId, receiverId);
 
         given(chatRoomRepository.findByDmKey(dmKey))
-                .willReturn(Optional.empty());
-        given(chatRoomRepository.save(any(ChatRoom.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
+                .willReturn(Optional.empty(), Optional.of(new ChatRoom(dmKey)));
+        given(chatRoomRepository.insertIfAbsent(any(UUID.class), eq(dmKey)))
+                .willReturn(1);
         given(chatMemberService.create(any(ChatRoom.class), eq(sender)))
                 .willReturn(mock(ChatMember.class));
         given(chatMemberService.create(any(ChatRoom.class), eq(receiver)))
@@ -60,7 +60,7 @@ class ChatRoomServiceImplTest {
                 () -> assertThat(createdChatRoom.getDmKey()).isEqualTo(dmKey),
                 () -> verify(chatMemberService, times(1)).create(any(ChatRoom.class), eq(sender)),
                 () -> verify(chatMemberService, times(1)).create(any(ChatRoom.class), eq(receiver)),
-                () -> verify(chatRoomRepository, times(1)).save(any(ChatRoom.class)),
+                () -> verify(chatRoomRepository).insertIfAbsent(any(UUID.class), eq(dmKey)),
                 () -> assertThat(createdChatRoom.getChatMembers()).hasSize(2)
         );
     }
@@ -87,7 +87,36 @@ class ChatRoomServiceImplTest {
         // then
         assertAll(
                 () -> assertThat(chatRoom).usingRecursiveComparison().isEqualTo(existingChatRoom), // 필드 비교
-                () -> verify(chatRoomRepository, never()).save(any(ChatRoom.class)),
+                () -> verify(chatRoomRepository, never()).insertIfAbsent(any(UUID.class), anyString()),
+                () -> verify(chatMemberService, never()).create(any(ChatRoom.class), any(User.class))
+        );
+    }
+
+    @Test
+    @DisplayName("동시에 생성된 1대1 채팅방을 재조회한다.")
+    void getPrivateChatRoomCreatedByConcurrentRequest() {
+        // given
+        UUID senderId = UUID.randomUUID();
+        UUID receiverId = UUID.randomUUID();
+        User sender = mock(User.class);
+        User receiver = mock(User.class);
+        given(sender.getId()).willReturn(senderId);
+        given(receiver.getId()).willReturn(receiverId);
+        String dmKey = ChatRoom.generateDmKey(senderId, receiverId);
+        ChatRoom existingChatRoom = new ChatRoom(dmKey);
+
+        given(chatRoomRepository.findByDmKey(dmKey))
+                .willReturn(Optional.empty(), Optional.of(existingChatRoom));
+        given(chatRoomRepository.insertIfAbsent(any(UUID.class), eq(dmKey)))
+                .willReturn(0);
+
+        // when
+        ChatRoom chatRoom = chatRoomService.getOrCreatePrivateRoom(sender, receiver);
+
+        // then
+        assertAll(
+                () -> assertThat(chatRoom).isSameAs(existingChatRoom),
+                () -> verify(chatRoomRepository).insertIfAbsent(any(UUID.class), eq(dmKey)),
                 () -> verify(chatMemberService, never()).create(any(ChatRoom.class), any(User.class))
         );
     }

@@ -16,7 +16,7 @@ import java.util.*;
 public class ChatRoom {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
+    // getOrCreatePrivateRoom의 충돌 안전 INSERT에서 UUID를 직접 생성한다.
     private UUID id;
 
     @Column(name = "dm_key", nullable = false, unique = true)

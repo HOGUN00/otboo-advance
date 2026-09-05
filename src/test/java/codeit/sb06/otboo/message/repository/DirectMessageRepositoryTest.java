@@ -16,7 +16,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Slice;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -40,7 +42,7 @@ class DirectMessageRepositoryTest {
         em.persist(sender);
 
         String dmKey = "uuid_test_dm_key";
-        chatRoom = new ChatRoom(dmKey);
+        chatRoom = new ChatRoom(UUID.randomUUID(), dmKey, new HashSet<>());
         em.persist(chatRoom);
 
         for (int i = 1; i <= 20; i++) {
