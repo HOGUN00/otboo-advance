@@ -30,6 +30,36 @@
 
 ---
 
+## 🔍 핵심 구현과 문제 해결
+
+> 아래는 대표적인 구현·문제 해결 사례이며, [개발 리포트](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)에는 기술 선택 근거와 검증 과정, 그 외 구현·개선 내용을 함께 정리했습니다. 
+
+### 팀 프로젝트 구현
+
+- [다중 서버 실시간 메시징](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14): 서버별 로컬 연결로 다른 서버의 사용자에게 DM·알림을 전달할 수 없음 → *사용자-서버 연결 위치를 별도 관리하는 대신 Redis Streams로 모든 서버에 메시지를 공유*하고 해당 사용자가 연결된 서버에서만 최종 전송
+- **Redis Streams 선택·실패 재처리 및 장애 대응**: [메시지 브로커 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f4ae68c13faaa6d41d)에서 Consumer 처리 확인과 실패 재처리를 기준으로 Redis Streams 선택 → [재처리·장애 대응](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f0b479f9c41a95c359)에서 ACK·PEL 기반 재처리 스케줄러와 Circuit Breaker 적용
+
+### 개인 고도화 및 검증
+
+- [DM DB 커넥션 풀 병목 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): DM 부하에서 HikariCP 커넥션 대기 확인 → `AFTER_COMMIT + REQUIRES_NEW`의 추가 Connection 획득을 원인으로 확인 → DM·알림 DB 저장을 같은 트랜잭션으로 결합해 병목 해소
+  - **트레이드오프**: 외부 큐 비동기화는 Thread·Connection을 분리할 수 있지만, DM Commit과 큐 발행 사이의 알림 생성 요청 유실 가능성을 고려해 DM·알림을 같은 트랜잭션에서 저장
+- [알림 삭제 배치 구조 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): Job은 완료됐지만 실제 삭제되지 않는 문제 발견 → UUID 기반 JDBC Paging·Batch DELETE로 변경하고 재시작을 고려한 복합 정렬·날짜 기준 JobParameter 적용 → `EXPLAIN ANALYZE`로 실행 계획을 비교해 복합 인덱스 효과 검증
+- [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
+
+---
+
+## 📊 성능 측정
+
+| 측정 항목                 | 결과                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| DM DB 병목 개선           | 동일 500 VU에서 **HikariCP timeout 501 → 0**, 최대 waiting **215 → 0**                                  |
+| 실시간 DM 지속 부하          | 60초 지속 부하에서 **275 msg/s 전부 10초 내 수신**, **300 msg/s부터 실패 관찰**                                      |
+| 알림 삭제 Batch Paging 조회 | 47,300건 기준 `ORDER BY id` → 복합 정렬·인덱스 적용 후 첫 페이지 조회 **8.056ms → 0.066ms**, **Index Only Scan** 전환 |
+
+🔗 [성능 측정 조건 및 범위](https://app.notion.com/p/3c6203c86c5980728926d20a6576963a)
+
+---
+
 ## 🏗️ 시스템 아키텍처
 
 > <img width="1800" height="1125" alt="otboo-architecture" src="https://github.com/user-attachments/assets/5994d221-7de7-4a61-88fc-431e95684506" />
@@ -108,37 +138,6 @@ flowchart TD
 > **재처리 정책과 보장 범위:** PostgreSQL을 메시지의 원본 저장소로 두고 Redis Streams는 서버 간 실시간 전달에 사용합니다. Consumer가 읽은 뒤 ACK하지 못한 메시지는 PEL에서 재처리합니다. 반복적으로 전달에 실패한 메시지는 PostgreSQL에 원본이 남아 있다는 점을 고려해 별도 DLQ로 분리하지 않고, 누적 전달 횟수가 5회를 초과하면 ACK 처리해 PEL에 계속 남지 않도록 했습니다. 따라서 Redis 장애나 WebSocket·SSE 연결 단절 중 실시간 전달은 보장하지 않습니다. 이때 DM은 이후 채팅방 조회로, 알림은 SSE 재연결 시 Redis List 또는 DB에서 확인할 수 있습니다.
 
 </details>
-
----
-
-## 🔍 핵심 구현과 문제 해결
-
-> 아래는 대표적인 구현·문제 해결 사례이며, [개발 리포트](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)에는 기술 선택 근거와 검증 과정, 그 외 구현·개선 내용을 함께 정리했습니다. 
-
-### 팀 프로젝트 구현
-
-- [다중 서버 실시간 메시징](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14): 서버별 로컬 연결로 다른 서버의 사용자에게 DM·알림을 전달할 수 없음 → *사용자-서버 연결 위치를 별도 관리하는 대신 Redis Streams로 모든 서버에 메시지를 공유*하고 해당 사용자가 연결된 서버에서만 최종 전송
-- **Redis Streams 선택·실패 재처리 및 장애 대응**: [메시지 브로커 선택](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f4ae68c13faaa6d41d)에서 Consumer 처리 확인과 실패 재처리를 기준으로 Redis Streams 선택 → [재처리·장애 대응](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f0b479f9c41a95c359)에서 ACK·PEL 기반 재처리 스케줄러와 Circuit Breaker 적용
-- **테스트 검증**: 핵심 비즈니스 로직은 Mockito 기반 단위 테스트, JPA Repository와 Redis 관련 동작은 슬라이스 테스트, 알림 배치 흐름은 통합 테스트로 검증. EasyRandom으로 테스트 데이터 구성
-
-### 개인 고도화 및 검증
-
-- [DM DB 커넥션 풀 병목 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): DM 부하에서 HikariCP 커넥션 대기 확인 → AFTER_COMMIT + REQUIRES_NEW의 추가 Connection 획득을 원인으로 확인 → DM·알림 DB 저장을 같은 트랜잭션으로 결합해 병목 해소
-- [알림 삭제 배치 구조 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): Job은 완료됐지만 실제 삭제되지 않는 문제 발견 → UUID 기반 JDBC Paging·Batch DELETE로 변경하고 재시작을 고려한 복합 정렬·날짜 기준 JobParameter 적용 → `EXPLAIN ANALYZE`로 실행 계획을 비교해 복합 인덱스 효과 검증
-- [인가 구조 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3ca203c86c5980568ce8cfcd6c928a8e): 요청의 userId·authorId·followerId를 신뢰해 타 사용자 리소스를 조작할 수 있는 구조 발견 → 인증된 사용자 ID를 사용하도록 변경하고 수정·삭제 시 소유권 검증 추가 → 통합 테스트로 401/403/204 동작 검증
-- [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
-
----
-
-## 📊 성능 측정
-
-| 측정 항목                 | 결과                                                                                                |
-| --------------------- | ------------------------------------------------------------------------------------------------- |
-| DM DB 병목 개선           | 동일 500 VU에서 **HikariCP timeout 501 → 0**, 최대 waiting **215 → 0**                                  |
-| 실시간 DM 지속 부하          | 60초 지속 부하에서 **275 msg/s 전부 10초 내 수신**, **300 msg/s부터 실패 관찰**                                      |
-| 알림 삭제 Batch Paging 조회 | 47,300건 기준 `ORDER BY id` → 복합 정렬·인덱스 적용 후 첫 페이지 조회 **8.056ms → 0.066ms**, **Index Only Scan** 전환 |
-
-🔗 [성능 측정 조건 및 범위](https://app.notion.com/p/3c6203c86c5980728926d20a6576963a)
 
 ---
 
