@@ -1,7 +1,7 @@
 # 🧥 옷장을 부탁해 (Otboo)
 
 > 날씨·취향 기반 의상 조합 추천 + OOTD 피드 소셜 서비스 \
-> 팀 프로젝트 종료 후 성능 검증을 통해 오류를 발견·수정하고, 병목을 분석해 구조적 개선 방향을 도출한 개인 고도화 포크
+> 팀 프로젝트 종료 후 성능 검증으로 오류·병목을 발견하고, 원인 검증과 구조 개선까지 수행한 개인 고도화 포크
 
 [![Java](https://img.shields.io/badge/Java-17-orange)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-green)](https://spring.io/projects/spring-boot)
@@ -13,7 +13,7 @@
 
 > 원본 프로젝트: [codeit-team2-advanced-project/sb06-otboo-team2](https://github.com/codeit-team2-advanced-project/sb06-otboo-team2) \
 > 팀 프로젝트: 5인, 2026.01.22 ~ 02.27 \
-> 개인 고도화: 2026.07 ~
+> 개인 고도화: 2026.07 ~ 09
 
 ---
 
@@ -40,13 +40,13 @@
 
 ### 실시간 DM 처리 흐름
 
-메시지는 먼저 PostgreSQL에 저장합니다. 트랜잭션 커밋 후 Redis Streams에 발행하고, 각 애플리케이션 서버가 독립된 Consumer Group으로 메시지를 수신하여 해당 서버에 연결된 구독자에게 전달합니다.
+DM과 DM 알림은 하나의 트랜잭션에서 함께 저장합니다. 트랜잭션 커밋 후 DM을 Redis Streams에 발행하고, 각 애플리케이션 서버가 독립된 Consumer Group으로 메시지를 수신하여 해당 서버에 연결된 구독자에게 전달합니다.
 
 ```mermaid
 flowchart LR
     Sender[발신자] -->|STOMP 메시지 전송| WS[WebSocket 컨트롤러]
     WS --> Service[DM 서비스]
-    Service -->|메시지 저장| DB[(PostgreSQL)]
+    Service -->|DM·알림 함께 저장| DB[(PostgreSQL)]
     Service -->|애플리케이션 이벤트| Listener[DM 이벤트 리스너]
     Listener -->|커밋 후 Redis Streams에 발행| Stream[(Redis Streams)]
 
@@ -60,14 +60,13 @@ flowchart LR
 
 ### 실시간 알림 및 재연결 보정 흐름
 
-도메인 트랜잭션이 커밋되면 알림을 별도 트랜잭션으로 생성합니다. 재연결 보정을 위해 사용자별 최근 알림을 Redis List에 최대 50개, 5일 TTL로 캐시한 뒤 Redis Streams로 발행합니다. 각 서버는 자신에게 연결된 사용자에게 SSE로 알림을 전송하며, 재접속 시에는 `lastEventId` 이후의 누락 알림을 다시 전송합니다. 캐시 미스 시에는 PostgreSQL에서 최근 알림을 조회해 캐시를 복구합니다.
+생성된 알림은 재연결 보정을 위해 사용자별 Redis List에 최대 50개, 5일 TTL로 캐시한 뒤 Redis Streams로 발행합니다. 각 서버는 자신에게 연결된 사용자에게 SSE로 알림을 전송하며, 재접속 시에는 lastEventId 이후의 누락 알림을 다시 전송합니다. 캐시 미스 시에는 PostgreSQL에서 최근 알림을 조회해 캐시를 복구합니다.
 
 ```mermaid
 flowchart LR
-    Domain[DM·피드·팔로우 등] -->|트랜잭션 커밋 후 이벤트 처리| Listener[알림 이벤트 리스너]
-    Listener -->|1. 별도 트랜잭션으로 알림 저장| DB[(PostgreSQL)]
-    Listener -->|2. 최근 알림 캐싱| Cache[(Redis List 기반 최근 알림 캐시)]
-    Listener -->|3. Redis Streams에 알림 발행| Stream[(Redis Streams)]
+    Domain[DM·피드·팔로우 등] -->|알림 이벤트| Listener[알림 이벤트 리스너]
+    Listener -->|1. 최근 알림 캐싱| Cache[(Redis List 기반 최근 알림 캐시)]
+    Listener -->|2. Redis Streams에 알림 발행| Stream[(Redis Streams)]
 
     Stream -->|서버별 Consumer Group| ConsumerA[애플리케이션 서버 A]
     Stream -->|서버별 Consumer Group| ConsumerB[애플리케이션 서버 B]
@@ -78,7 +77,7 @@ flowchart LR
 
     ClientA -.->|lastEventId로 재연결| Replay[SSE 재연결 처리]
     Replay -.->|이후 알림 조회| Cache
-    Cache -.->|캐시 미스| DB
+    Cache -.->|캐시 미스| DB[(PostgreSQL)]
     Cache -.->|누락 알림| Replay
     Replay -.->|재전송| ClientA
 ```
@@ -106,7 +105,7 @@ flowchart TD
     Pause -.->|HALF_OPEN 시험 호출| Scheduler
 ```
 
-> **재처리 정책과 보장 범위:** PostgreSQL을 메시지의 원본 저장소로 두고 Redis Streams는 서버 간 실시간 전달에 사용합니다. 일시적인 전달 실패는 PEL에서 재처리하지만, 반복 실패 이벤트는 원본 데이터가 DB에 남아 있으므로 별도 DLQ로 격리하지 않고 누적 전달 횟수가 5회를 초과하면 ACK 처리해 PEL 누적을 방지했습니다. 따라서 Redis 장애나 WebSocket·SSE 연결 단절 중 실시간 전달은 보장하지 않습니다. 이때 DM은 이후 채팅방 조회로, 알림은 SSE 재연결 시 Redis List 또는 DB에서 확인할 수 있습니다.
+> **재처리 정책과 보장 범위:** PostgreSQL을 메시지의 원본 저장소로 두고 Redis Streams는 서버 간 실시간 전달에 사용합니다. Consumer가 읽은 뒤 ACK하지 못한 메시지는 PEL에서 재처리합니다. 반복적으로 전달에 실패한 메시지는 PostgreSQL에 원본이 남아 있다는 점을 고려해 별도 DLQ로 분리하지 않고, 누적 전달 횟수가 5회를 초과하면 ACK 처리해 PEL에 계속 남지 않도록 했습니다. 따라서 Redis 장애나 WebSocket·SSE 연결 단절 중 실시간 전달은 보장하지 않습니다. 이때 DM은 이후 채팅방 조회로, 알림은 SSE 재연결 시 Redis List 또는 DB에서 확인할 수 있습니다.
 
 </details>
 
@@ -124,7 +123,7 @@ flowchart TD
 
 ### 개인 고도화 및 검증
 
-- [DM DB 커넥션 풀 병목](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): 부하 증가에 따라 메시지 타임아웃 급증 → 스레드 덤프에서 처리 스레드의 DB 커넥션 대기 확인 → 풀 확대의 한계와 DB 왕복 축소·처리량 제어 방향 도출
+- [DM DB 커넥션 풀 병목 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a): DM 부하에서 HikariCP 커넥션 대기 확인 → AFTER_COMMIT + REQUIRES_NEW의 추가 Connection 획득을 원인으로 확인 → DM·알림 DB 저장을 같은 트랜잭션으로 결합해 병목 해소
 - [알림 삭제 배치 구조 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b): Job은 완료됐지만 실제 삭제되지 않는 문제 발견 → UUID 기반 JDBC Paging·Batch DELETE로 변경하고 재시작을 고려한 복합 정렬·날짜 기준 JobParameter 적용 → `EXPLAIN ANALYZE`로 실행 계획을 비교해 복합 인덱스 효과 검증
 - [인가 구조 개선](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3ca203c86c5980568ce8cfcd6c928a8e): 요청의 userId·authorId·followerId를 신뢰해 타 사용자 리소스를 조작할 수 있는 구조 발견 → 인증된 사용자 ID를 사용하도록 변경하고 수정·삭제 시 소유권 검증 추가 → 통합 테스트로 401/403/204 동작 검증
 - [SSE 재연결 알림 유실](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59805e9a44f902fbe9a7c2): 이전 emitter의 지연된 완료 콜백이 새 연결까지 삭제 → `ConcurrentHashMap.remove(key, value)` 적용 → 재연결 재현 테스트로 정상 수신 확인
@@ -133,10 +132,10 @@ flowchart TD
 
 ## 📊 성능 측정
 
-| 측정 항목 | 결과 |
-|-----------|------|
-| WebSocket DM 부하테스트 | **500 → 5,000 VU에서 메시지 타임아웃 15.5% → 95.9%** → 스레드 덤프에서 **216개 처리 스레드의 HikariCP 커넥션 대기** 확인 |
-| Redis Streams Consumer 구간 측정 | 앱·DB 경로를 제외하고 Redis Streams에 직접 메시지를 주입한 조건에서 단일 Consumer **약 6,300 msg/sec** 처리 |
+| 측정 항목                 | 결과                                                                                                |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| DM DB 병목 개선           | 동일 500 VU에서 **HikariCP timeout 501 → 0**, 최대 waiting **215 → 0**                                  |
+| 실시간 DM 지속 부하          | 60초 지속 부하에서 **275 msg/s 전부 10초 내 수신**, **300 msg/s부터 실패 관찰**                                      |
 | 알림 삭제 Batch Paging 조회 | 47,300건 기준 첫 페이지 조회 **8.056ms → 0.066ms** → `(created_at, id)` 복합 인덱스 적용 후 **Index Only Scan** 전환 |
 
 ---
