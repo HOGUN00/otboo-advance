@@ -12,6 +12,8 @@ import codeit.sb06.otboo.message.repository.ChatRoomRepository;
 import codeit.sb06.otboo.message.repository.DirectMessageRepository;
 import codeit.sb06.otboo.message.service.impl.DirectMessageServiceImpl;
 import codeit.sb06.otboo.notification.publisher.NotificationEventPublisher;
+import codeit.sb06.otboo.notification.dto.NotificationDto;
+import codeit.sb06.otboo.notification.service.NotificationService;
 import codeit.sb06.otboo.user.entity.User;
 import codeit.sb06.otboo.user.repository.UserRepository;
 import codeit.sb06.otboo.util.EasyRandomUtil;
@@ -59,6 +61,9 @@ class DirectMessageServiceImplTest {
     private NotificationEventPublisher notificationEventPublisher;
 
     @Mock
+    private NotificationService notificationService;
+
+    @Mock
     private ChatRoomRepository chatRoomRepository;
 
     @Mock
@@ -79,7 +84,10 @@ class DirectMessageServiceImplTest {
 
         User sender = mock(User.class);
         User receiver = mock(User.class);
+        String senderName = "sender";
+        NotificationDto notification = easyRandom.nextObject(NotificationDto.class);
         given(sender.getId()).willReturn(request.senderId());
+        given(sender.getName()).willReturn(senderName);
         given(receiver.getId()).willReturn(request.receiverId());
         given(userRepository.findAllById(any()))
                 .willReturn(List.of(sender, receiver));
@@ -87,6 +95,11 @@ class DirectMessageServiceImplTest {
                 .willReturn(mock(ChatRoom.class));
         given(directMessageRepository.save(any(DirectMessage.class)))
                 .willAnswer(invocation -> invocation.getArgument(0));
+        given(notificationService.createDirectMessageInCurrentTransaction(
+                request.receiverId(),
+                senderName,
+                request.content()))
+                .willReturn(notification);
 
         // when
         UUID authenticatedSenderId = request.senderId();
@@ -97,6 +110,7 @@ class DirectMessageServiceImplTest {
                 () -> assertThat(dmDto).isNotNull(),
                 () -> assertThat(dmDto.content()).isEqualTo(request.content())
         );
+        verify(notificationEventPublisher).publishNotificationCreatedEvent(notification);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.notification.publisher;
 
+import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.event.*;
 import codeit.sb06.otboo.notification.publisher.impl.NotificationEventPublisherImpl;
 import codeit.sb06.otboo.util.EasyRandomUtil;
@@ -27,18 +28,16 @@ class NotificationPublisherTest {
     private NotificationEventPublisherImpl notificationEventPublisher;
 
     @Test
-    @DisplayName("dm 생성 이벤트가 발행된다.")
-    void directMessageCreatedEventPublishTest() {
+    @DisplayName("저장된 알림 이벤트가 발행된다")
+    void notificationCreatedEventPublishTest() {
+        // given
+        NotificationDto notification = easyRandom.nextObject(NotificationDto.class);
+
         // when
-        DirectMessageCreatedEvent event = easyRandom.nextObject(DirectMessageCreatedEvent.class);
+        notificationEventPublisher.publishNotificationCreatedEvent(notification);
 
         // then
-        notificationEventPublisher.publishDirectMessageCreatedEvent(
-                event.targetId(), event.senderName(), event.content()
-        );
-
-        // then
-        verify(publisher, times(1)).publishEvent(event);
+        verify(publisher).publishEvent(new NotificationCreatedEvent(notification));
     }
 
     @Test

@@ -27,7 +27,6 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
@@ -62,6 +61,31 @@ class NotificationServiceTest {
 
         // then
         assertThat(notificationDto).isNotNull();
+    }
+
+    @Test
+    @DisplayName("DM 알림 생성 시 제목과 등급을 설정한다")
+    void createDirectMessageNotificationTest() {
+        // given
+        UUID receiverId = UUID.randomUUID();
+        String senderName = "sender";
+        String content = "message";
+        given(notificationRepository.save(any(Notification.class)))
+                .willAnswer(invocation -> invocation.getArgument(0));
+
+        // when
+        NotificationDto notificationDto = notificationService.createDirectMessageInCurrentTransaction(
+                receiverId,
+                senderName,
+                content);
+
+        // then
+        assertAll(
+                () -> assertThat(notificationDto.receiverId()).isEqualTo(receiverId),
+                () -> assertThat(notificationDto.title()).isEqualTo("sender님이 메시지를 보냈습니다."),
+                () -> assertThat(notificationDto.content()).isEqualTo(content),
+                () -> assertThat(notificationDto.level()).isEqualTo(NotificationLevel.INFO)
+        );
     }
 
     @Test

@@ -11,6 +11,8 @@ public interface NotificationService {
 
     NotificationDto create(UUID receiverId, String title, String content, NotificationLevel level);
 
+    NotificationDto createDirectMessageInCurrentTransaction(UUID receiverId, String senderName, String content);
+
     void deleteById(UUID currentUserId, UUID notificationId);
 
     NotificationDtoCursorResponse getNotifications(LocalDateTime cursor, UUID idAfter, int limit, UUID myUserId);

@@ -13,7 +13,9 @@ import codeit.sb06.otboo.message.repository.ChatRoomRepository;
 import codeit.sb06.otboo.message.repository.DirectMessageRepository;
 import codeit.sb06.otboo.message.service.ChatRoomService;
 import codeit.sb06.otboo.message.service.DirectMessageService;
+import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.publisher.NotificationEventPublisher;
+import codeit.sb06.otboo.notification.service.NotificationService;
 import codeit.sb06.otboo.user.entity.User;
 import codeit.sb06.otboo.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +42,7 @@ public class DirectMessageServiceImpl implements DirectMessageService {
     private final DirectMessageMapper directMessageMapper;
     private final ChatRoomRepository chatRoomRepository;
     private final NotificationEventPublisher notificationEventPublisher;
+    private final NotificationService notificationService;
     private final DirectMessageEventPublisher dmEventPublisher;
 
     @Override
@@ -73,10 +76,11 @@ public class DirectMessageServiceImpl implements DirectMessageService {
 
         log.info("DM 저장: {}", saved);
 
-        notificationEventPublisher.publishDirectMessageCreatedEvent(
+        NotificationDto notificationDto = notificationService.createDirectMessageInCurrentTransaction(
                 receiver.getId(),
                 sender.getName(),
                 request.content());
+        notificationEventPublisher.publishNotificationCreatedEvent(notificationDto);
 
         DirectMessageDto dto = directMessageMapper.toDto(saved, receiver);
         String dmKey = ChatRoom.generateDmKey(authenticatedSenderId, request.receiverId());

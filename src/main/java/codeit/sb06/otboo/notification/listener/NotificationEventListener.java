@@ -8,6 +8,7 @@ import codeit.sb06.otboo.notification.service.NotificationCacheService;
 import codeit.sb06.otboo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.util.UUID;
@@ -20,12 +21,9 @@ public class NotificationEventListener {
     private final NotificationCacheService notificationCacheService;
     private final RedisNotificationPublisher redisNotificationPublisher;
 
-    @TransactionalEventListener
-    public void handleDirectMessageCreatedEvent(DirectMessageCreatedEvent event) {
-
-        String title = event.senderName() + "님이 메시지를 보냈습니다.";
-
-        createAndSend(event.targetId(), title, event.content());
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleNotificationCreatedEvent(NotificationCreatedEvent event) {
+        cacheAndPublish(event.notificationDto());
     }
 
     @TransactionalEventListener
@@ -84,8 +82,11 @@ public class NotificationEventListener {
                 content,
                 NotificationLevel.INFO);
 
-        notificationCacheService.save(notificationDto);
+        cacheAndPublish(notificationDto);
+    }
 
+    private void cacheAndPublish(NotificationDto notificationDto) {
+        notificationCacheService.save(notificationDto);
         redisNotificationPublisher.publish(notificationDto);
     }
 }

@@ -1,11 +1,11 @@
 package codeit.sb06.otboo.notification.listener;
 
+import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.enums.NotificationLevel;
 import codeit.sb06.otboo.notification.event.*;
 import codeit.sb06.otboo.notification.publisher.RedisNotificationPublisher;
 import codeit.sb06.otboo.notification.service.NotificationCacheService;
 import codeit.sb06.otboo.notification.service.NotificationService;
-import codeit.sb06.otboo.notification.service.SseService;
 import codeit.sb06.otboo.util.EasyRandomUtil;
 import org.jeasy.random.EasyRandom;
 import org.junit.jupiter.api.DisplayName;
@@ -26,9 +26,6 @@ class NotificationListenerTest {
     private NotificationService notificationService;
 
     @Mock
-    private SseService sseService;
-
-    @Mock
     private NotificationCacheService notificationCacheService;
 
     @Mock
@@ -38,21 +35,18 @@ class NotificationListenerTest {
     private NotificationEventListener listener;
 
     @Test
-    @DisplayName("DM 이벤트 수신 시 알림이 생성된다.")
-    void directMessageCreatedEventTest() {
+    @DisplayName("저장된 알림 이벤트 수신 시 캐시 저장과 Redis 발행을 수행한다")
+    void notificationCreatedEventTest() {
         // given
-        var event = easyRandom.nextObject(DirectMessageCreatedEvent.class);
+        NotificationDto notification = easyRandom.nextObject(NotificationDto.class);
+        NotificationCreatedEvent event = new NotificationCreatedEvent(notification);
 
         // when
-        listener.handleDirectMessageCreatedEvent(event);
+        listener.handleNotificationCreatedEvent(event);
 
         // then
-        verify(notificationService, times(1)).create(
-                event.targetId(),
-                event.senderName() + "님이 메시지를 보냈습니다.",
-                event.content(),
-                NotificationLevel.INFO
-        );
+        verify(notificationCacheService).save(notification);
+        verify(redisNotificationPublisher).publish(notification);
     }
 
     @Test

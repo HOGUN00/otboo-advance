@@ -1,5 +1,6 @@
 package codeit.sb06.otboo.notification.publisher.impl;
 
+import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.event.*;
 import codeit.sb06.otboo.notification.publisher.NotificationEventPublisher;
 import codeit.sb06.otboo.user.entity.Role;
@@ -16,15 +17,8 @@ public class NotificationEventPublisherImpl implements NotificationEventPublishe
     private final ApplicationEventPublisher eventPublisher;
 
     @Override
-    public void publishDirectMessageCreatedEvent(UUID targetId, String senderName, String content) {
-
-        DirectMessageCreatedEvent event = DirectMessageCreatedEvent.builder()
-                .targetId(targetId)
-                .senderName(senderName)
-                .content(content)
-                .build();
-
-        eventPublisher.publishEvent(event);
+    public void publishNotificationCreatedEvent(NotificationDto notificationDto) {
+        eventPublisher.publishEvent(new NotificationCreatedEvent(notificationDto));
     }
 
     @Override

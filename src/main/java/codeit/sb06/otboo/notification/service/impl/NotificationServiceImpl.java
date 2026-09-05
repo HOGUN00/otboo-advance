@@ -32,6 +32,20 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     public NotificationDto create(UUID receiverId, String title, String content, NotificationLevel level) {
 
+        return save(receiverId, title, content, level);
+    }
+
+    @Transactional(propagation = Propagation.MANDATORY)
+    @Override
+    public NotificationDto createDirectMessageInCurrentTransaction(UUID receiverId, String senderName, String content) {
+
+        String title = senderName + "님이 메시지를 보냈습니다.";
+
+        return save(receiverId, title, content, NotificationLevel.INFO);
+    }
+
+    private NotificationDto save(UUID receiverId, String title, String content, NotificationLevel level) {
+
         Notification notification = Notification.builder()
                 .receiverId(receiverId)
                 .title(title)
