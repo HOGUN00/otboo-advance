@@ -138,6 +138,8 @@ flowchart TD
 | 실시간 DM 지속 부하          | 60초 지속 부하에서 **275 msg/s 전부 10초 내 수신**, **300 msg/s부터 실패 관찰**                                      |
 | 알림 삭제 Batch Paging 조회 | 47,300건 기준 첫 페이지 조회 **8.056ms → 0.066ms** → `(created_at, id)` 복합 인덱스 적용 후 **Index Only Scan** 전환 |
 
+🔗 [성능 측정 조건 및 범위](https://app.notion.com/p/3c6203c86c5980728926d20a6576963a)
+
 ---
 
 ## ✅ 코드 품질 관리
