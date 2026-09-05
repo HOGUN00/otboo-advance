@@ -7,6 +7,7 @@ import codeit.sb06.otboo.notification.publisher.RedisNotificationPublisher;
 import codeit.sb06.otboo.notification.service.NotificationCacheService;
 import codeit.sb06.otboo.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
@@ -21,6 +22,7 @@ public class NotificationEventListener {
     private final NotificationCacheService notificationCacheService;
     private final RedisNotificationPublisher redisNotificationPublisher;
 
+    @Order(1)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleNotificationCreatedEvent(NotificationCreatedEvent event) {
         cacheAndPublish(event.notificationDto());
