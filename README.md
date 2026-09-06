@@ -7,7 +7,7 @@
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.5.10-green)](https://spring.io/projects/spring-boot)
 
 🎬 [팀 프로젝트 시연 영상](https://drive.google.com/file/d/15Aw6SN9HEt85HFxmfV5XhMdY0WsPqMJM/view)  | 
-🗒️ [개발 리포트](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)  |
+🗒️ [기술 문서](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)  |
 🔍 [팀 프로젝트 SonarQube Cloud · Test Coverage 83.3%](https://sonarcloud.io/component_measures?metric=coverage&id=codeit-team2-advanced-project_sb06-otboo-team2)  | 
 
 
@@ -32,7 +32,7 @@
 
 ## 🔍 핵심 구현과 문제 해결
 
-> 아래는 대표적인 구현·문제 해결 사례이며, [개발 리포트](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)에는 기술 선택 근거와 검증 과정, 그 외 구현·개선 내용을 함께 정리했습니다. 
+> 아래는 대표적인 구현·문제 해결 사례이며, [기술 문서](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)에는 기술 선택 근거와 검증 과정, 그 외 구현·개선 내용을 함께 정리했습니다. 
 
 ### 팀 프로젝트 구현
 
