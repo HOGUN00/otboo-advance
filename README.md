@@ -22,7 +22,7 @@
 
 ---
 
-## 🔍 핵심 엔지니어링 경험
+## 🔍 핵심 구현 및 개선
 
 ### 1. DM DB 커넥션 병목 분석·개선
 
@@ -44,8 +44,10 @@ HikariCP timeout **501 → 0**, max waiting **215 → 0**<br>
 
 **판단**<br>
 외부 큐 비동기화도 검토<br>
-→ DB Commit과 큐 발행 사이의 실패 보장 필요<br>
-→ 현재 범위에서는 **추가 발행 보장 구조보다 데이터 정합성 우선**
+→ DM Commit 후 알림 생성 요청 발행에 실패하면 알림이 생성되지 않을 수 있음<br>
+→ 현재 범위에서는 **별도 큐 도입보다 DM·알림 DB 저장 정합성 우선**<br>
+→ 대신 알림 저장 실패가 DM까지 롤백되는 결합은 감수<br>
+→ 향후 Transactional Outbox로 **알림 생성 요청 발행을 보장**한 뒤 알림 처리를 비동기로 분리 가능
 
 🔗 [DM 커넥션 병목 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a)
 
@@ -71,9 +73,10 @@ Redis Pub/Sub · RabbitMQ · Kafka · Redis Streams 비교<br>
 → **Consumer 처리 확인 + 실패 재처리 + 기존 Redis 인프라 활용**
 
 **보장 범위**<br>
-ACK되지 않은 메시지 → PEL에서 추적·재처리<br>
-DB Commit 후 Stream 발행 실패 → 보장하지 않음<br>
-→ 필요 시 Transactional Outbox + 발행 재시도 구조 필요
+Stream에 전달된 뒤 ACK되지 않은 메시지 → PEL에서 추적·재처리<br>
+DB Commit 후 실시간 이벤트의 Stream 발행 실패 → 현재 보장하지 않음<br>
+→ 원본 데이터는 PostgreSQL에 남으며 이후 조회 가능<br>
+→ 실시간 전달까지 보장해야 한다면 Outbox 기반 발행 재시도 적용 가능
 
 🔗 [다중 서버 메시징 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14)
 
