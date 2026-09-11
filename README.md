@@ -22,6 +22,34 @@
 
 ---
 
+## 🔄 핵심 처리 흐름
+
+### 실시간 DM 처리 흐름
+
+DM 요청은 WebSocket으로 수신하고, DM과 DM 알림을 하나의 트랜잭션에서 저장합니다.  
+트랜잭션 커밋 후 Redis Streams에 이벤트를 발행하고, 각 애플리케이션 서버가 서버별 Consumer Group으로 수신해 구독자에게 전달합니다.
+
+```mermaid
+flowchart LR
+    Sender[발신자] -->|STOMP 메시지| WS[WebSocket 컨트롤러]
+    WS --> Service[DM 서비스]
+
+    Service -->|DM·DM 알림 동일 트랜잭션| DB[(PostgreSQL)]
+    Service -->|애플리케이션 이벤트| Listener[DM 이벤트 리스너]
+    Listener -->|커밋 후 Redis Streams 발행| Stream[(Redis Streams)]
+
+    Stream -->|서버별 Consumer Group| App1[애플리케이션 서버 A]
+    Stream -->|서버별 Consumer Group| App2[애플리케이션 서버 B]
+
+    App1 -->|STOMP 전달| Receiver1[서버 A 연결 구독자]
+    App2 -->|STOMP 전달| Receiver2[서버 B 연결 구독자]
+
+    App1 -->|처리 후 ACK| Stream
+    App2 -->|처리 후 ACK| Stream
+```
+
+---
+
 ## 🔍 핵심 구현 및 개선
 
 ### 1. DM DB 커넥션 병목 분석·개선
