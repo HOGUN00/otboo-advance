@@ -34,6 +34,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.web.socket.WebSocketHttpHeaders;
 import org.springframework.web.socket.client.standard.StandardWebSocketClient;
 import org.springframework.web.socket.messaging.WebSocketStompClient;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.lang.reflect.Type;
 import java.util.List;
@@ -55,7 +59,13 @@ import static org.mockito.BDDMockito.given;
 @ActiveProfiles("test")
 @ContextConfiguration(initializers = EmbeddedRedisInitializer.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+@Testcontainers
 class DirectMessageWebSocketControllerTest {
+
+    @Container
+    @ServiceConnection
+    static final PostgreSQLContainer<?> POSTGRESQL =
+            new PostgreSQLContainer<>("postgres:17-alpine");
 
     @LocalServerPort
     private int port;
