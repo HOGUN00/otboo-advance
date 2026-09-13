@@ -18,7 +18,7 @@
 | 구분 | 주요 경험 |
 | --- | --- |
 | 팀 프로젝트 | WebSocket 1:1 DM · SSE 알림 · Redis Streams 기반 다중 서버 전달·재처리 · 알림 Batch |
-| 개인 고도화 | DM 커넥션 병목 분석 · 알림 삭제 Batch 개선 · SSE 재연결 Race Condition · 권한 검증 개선 |
+| 개인 고도화 | DM DB 커넥션 병목 분석 · 알림 삭제 Batch 개선 · SSE 재연결 Race Condition · 권한 검증 개선 |
 
 ---
 
@@ -67,15 +67,16 @@ DM·알림 DB 저장을 동일 트랜잭션으로 결합<br>
 
 **검증**<br>
 HikariCP timeout **501 → 0**, max waiting **215 → 0**<br>
-지속 부하 60초 기준 **275 msg/s 전부 10초 내 수신**<br>
-→ **300 msg/s부터 실패 관찰**
 
-**판단**<br>
-외부 큐 비동기화도 검토<br>
-→ DM Commit 후 알림 생성 요청 발행에 실패하면 알림이 생성되지 않을 수 있음<br>
-→ 현재 범위에서는 **별도 큐 도입보다 DM·알림 DB 저장 정합성 우선**<br>
-→ 대신 알림 저장 실패가 DM까지 롤백되는 결합은 감수<br>
-→ 향후 Transactional Outbox로 **알림 생성 요청 발행을 보장**한 뒤 알림 처리를 비동기로 분리 가능
+**후속 관찰**<br>
+DB 병목 제거 후 지속 부하 범위를 높이는 과정에서 Redis Stream Consumer의 별도 연결 문제를 확인
+→ Blocking Read용 Connection을 pool 없이 사용하는 구성에서 짧은 polling으로 Connection 생성·종료가 반복되고, 연속 부하 테스트에서 TIME_WAIT가 누적되는 현상을 확인
+
+**설계 판단**<br>
+현재 범위에서는 DM·알림 DB 저장 정합성을 우선해 동일 트랜잭션으로 처리
+
+DB Commit 이후 Redis Stream 발행 실패까지 보장해야 하는 경우
+→ Transactional Outbox로 발행 재시도 보장 가능
 
 🔗 [DM 커넥션 병목 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a)
 
