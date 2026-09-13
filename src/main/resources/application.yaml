@@ -160,6 +160,7 @@ otboo:
     stream:
       notification-key: notification:stream
       direct-message-key: direct-message:stream
+      max-length: ${REDIS_STREAM_MAX_LENGTH:30000}
 
   jwt:
     access-token:

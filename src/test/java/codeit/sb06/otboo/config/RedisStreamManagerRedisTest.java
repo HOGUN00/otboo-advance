@@ -36,7 +36,7 @@ class RedisStreamManagerRedisTest {
     @DisplayName("스트림이 없으면 빈 스트림과 컨슈머 그룹을 함께 생성한다")
     void createsEmptyStreamsAndGroupsWhenStreamsDoNotExist() {
         RedisStreamProperties streamProperties =
-                new RedisStreamProperties(NOTIFICATION_STREAM_KEY, DM_STREAM_KEY);
+                new RedisStreamProperties(NOTIFICATION_STREAM_KEY, DM_STREAM_KEY, 30_000L);
         RedisStreamManager streamManager =
                 new RedisStreamManager(redisTemplate, SERVER_ID, streamProperties);
 

@@ -22,6 +22,7 @@ import static org.mockito.Mockito.*;
 class DirectMessageRedisPublisherTest {
 
     private static final String DM_STREAM_KEY = "dm:stream";
+    private static final long STREAM_MAX_LENGTH = 12_345L;
 
     private final EasyRandom easyRandom = EasyRandomUtil.getRandom();
 
@@ -40,7 +41,7 @@ class DirectMessageRedisPublisherTest {
     @BeforeEach
     void setUp() {
         RedisStreamProperties streamProperties =
-                new RedisStreamProperties("notification:stream", DM_STREAM_KEY);
+                new RedisStreamProperties("notification:stream", DM_STREAM_KEY, STREAM_MAX_LENGTH);
         directMessageRedisPublisher = new DirectMessageRedisPublisher(redisTemplate, objectMapper, streamProperties);
         doReturn(streamOps).when(redisTemplate).opsForStream();
     }
@@ -56,5 +57,6 @@ class DirectMessageRedisPublisherTest {
 
         // then
         verify(streamOps, times(1)).add(any());
+        verify(streamOps).trim(DM_STREAM_KEY, STREAM_MAX_LENGTH, true);
     }
 }

@@ -25,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 public class RedisNotificationPublisherImpl implements RedisNotificationPublisher {
 
     public static final int TIMEOUT = 1;
-    public static final int COUNT = 30000;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final RedisStreamProperties streamProperties;
@@ -46,7 +45,11 @@ public class RedisNotificationPublisherImpl implements RedisNotificationPublishe
                     .withId(RecordId.autoGenerate());
 
             redisTemplate.opsForStream().add(record);
-            redisTemplate.opsForStream().trim(notificationStreamKey, COUNT, true);
+            redisTemplate.opsForStream().trim(
+                    notificationStreamKey,
+                    streamProperties.maxLength(),
+                    true
+            );
             redisTemplate.expire(notificationStreamKey, TIMEOUT, TimeUnit.DAYS);
         } catch (JsonProcessingException e) {
             throw new NotificationMappingException();
@@ -82,7 +85,11 @@ public class RedisNotificationPublisherImpl implements RedisNotificationPublishe
                     operations.opsForStream().add(record);
                 }
 
-                operations.opsForStream().trim(notificationStreamKey, COUNT, true);
+                operations.opsForStream().trim(
+                        notificationStreamKey,
+                        streamProperties.maxLength(),
+                        true
+                );
                 operations.expire(notificationStreamKey, TIMEOUT, TimeUnit.DAYS);
 
                 return null;

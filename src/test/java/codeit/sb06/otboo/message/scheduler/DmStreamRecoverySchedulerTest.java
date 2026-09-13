@@ -41,7 +41,7 @@ class DmStreamRecoverySchedulerTest {
     @BeforeEach
     void setUp() {
         RedisStreamProperties streamProperties =
-                new RedisStreamProperties("test-noti-stream", dmStreamKey);
+                new RedisStreamProperties("test-noti-stream", dmStreamKey, 30_000L);
         scheduler = new DmStreamRecoveryScheduler(
                 redisTemplate, null, serverId, streamProperties, messagingTemplate);
         ReflectionTestUtils.setField(scheduler, "groupName", groupName);

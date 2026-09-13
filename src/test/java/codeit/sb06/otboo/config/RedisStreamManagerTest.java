@@ -36,7 +36,7 @@ class RedisStreamManagerTest {
     @BeforeEach
     void setUp() {
         RedisStreamProperties streamProperties =
-                new RedisStreamProperties(NOTIFICATION_STREAM_KEY, DM_STREAM_KEY);
+                new RedisStreamProperties(NOTIFICATION_STREAM_KEY, DM_STREAM_KEY, 30_000L);
         streamManager = new RedisStreamManager(redisTemplate, SERVER_ID, streamProperties);
         doReturn(streamOperations).when(redisTemplate).opsForStream();
     }

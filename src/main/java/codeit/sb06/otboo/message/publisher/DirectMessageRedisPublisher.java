@@ -20,7 +20,6 @@ import java.util.concurrent.TimeUnit;
 public class DirectMessageRedisPublisher {
 
     public static final int TIMEOUT = 1;
-    public static final int COUNT = 30000;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final RedisStreamProperties streamProperties;
@@ -42,7 +41,7 @@ public class DirectMessageRedisPublisher {
                     .withId(RecordId.autoGenerate());
 
             redisTemplate.opsForStream().add(record);
-            redisTemplate.opsForStream().trim(dmStreamKey, COUNT, true);
+            redisTemplate.opsForStream().trim(dmStreamKey, streamProperties.maxLength(), true);
             redisTemplate.expire(dmStreamKey, TIMEOUT, TimeUnit.DAYS);
         } catch (JsonProcessingException e) {
             throw new DirectMessageMappingException();
