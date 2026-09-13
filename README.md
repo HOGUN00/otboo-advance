@@ -75,9 +75,6 @@ DB 병목 제거 후 지속 부하 범위를 높이는 과정에서 Redis Stream
 **설계 판단**<br>
 현재 범위에서는 DM·알림 DB 저장 정합성을 우선해 동일 트랜잭션으로 처리
 
-DB Commit 이후 Redis Stream 발행 실패까지 보장해야 하는 경우
-→ Transactional Outbox로 발행 재시도 보장 가능
-
 🔗 [DM 커넥션 병목 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a)
 
 ### 2. 다중 서버 실시간 메시징 구조 설계
@@ -105,7 +102,6 @@ Redis Pub/Sub · RabbitMQ · Kafka · Redis Streams 비교<br>
 Stream에 전달된 뒤 ACK되지 않은 메시지 → PEL에서 추적·재처리<br>
 DB Commit 후 실시간 이벤트의 Stream 발행 실패 → 현재 보장하지 않음<br>
 → 원본 데이터는 PostgreSQL에 남으며 이후 조회 가능<br>
-→ 실시간 전달까지 보장해야 한다면 Outbox 기반 발행 재시도 적용 가능
 
 🔗 [다중 서버 메시징 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14)
 
