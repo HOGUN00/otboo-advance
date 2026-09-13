@@ -78,6 +78,7 @@ dependencies {
     implementation 'com.nimbusds:nimbus-jose-jwt:10.3'
 
     implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.apache.commons:commons-pool2'
     implementation 'io.github.resilience4j:resilience4j-spring-boot3:2.2.0'
     implementation 'org.springframework.boot:spring-boot-starter-aop'
     implementation 'net.javacrumbs.shedlock:shedlock-spring:5.15.1'
@@ -86,7 +87,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
     implementation 'io.micrometer:micrometer-registry-prometheus'
 
-    testImplementation 'com.github.codemonstur:embedded-redis:1.4.3'
+    testImplementation('com.github.codemonstur:embedded-redis:1.4.3') {
+        // embedded-redis가 commons-pool2를 대신 제공하면 운영 의존성 누락이 테스트에서 숨겨진다.
+        // 테스트의 Lettuce pool도 운영 implementation에 명시한 commons-pool2만 사용하도록 제외한다.
+        exclude group: 'org.apache.commons', module: 'commons-pool2'
+    }
     testImplementation 'io.github.dvgaba:easy-random-core:7.1.1'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.boot:spring-boot-testcontainers'

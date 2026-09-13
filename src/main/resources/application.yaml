@@ -86,6 +86,12 @@ spring:
         enabled: false
       connect-timeout: 5s
       timeout: 3s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 8
+          max-idle: 8
+          max-wait: 1s
 
   batch:
     jdbc:
