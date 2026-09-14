@@ -1,6 +1,5 @@
 package codeit.sb06.otboo.notification.publisher;
 
-import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.event.*;
 import codeit.sb06.otboo.notification.publisher.impl.NotificationEventPublisherImpl;
 import codeit.sb06.otboo.util.EasyRandomUtil;
@@ -26,19 +25,6 @@ class NotificationPublisherTest {
 
     @InjectMocks
     private NotificationEventPublisherImpl notificationEventPublisher;
-
-    @Test
-    @DisplayName("저장된 알림 이벤트가 발행된다")
-    void notificationCreatedEventPublishTest() {
-        // given
-        NotificationDto notification = easyRandom.nextObject(NotificationDto.class);
-
-        // when
-        notificationEventPublisher.publishNotificationCreatedEvent(notification);
-
-        // then
-        verify(publisher).publishEvent(new NotificationCreatedEvent(notification));
-    }
 
     @Test
     @DisplayName("역할 업데이트 이벤트가 발행된다.")

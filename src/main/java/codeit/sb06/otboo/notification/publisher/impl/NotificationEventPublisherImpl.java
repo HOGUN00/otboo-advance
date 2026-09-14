@@ -1,6 +1,5 @@
 package codeit.sb06.otboo.notification.publisher.impl;
 
-import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.event.*;
 import codeit.sb06.otboo.notification.publisher.NotificationEventPublisher;
 import codeit.sb06.otboo.user.entity.Role;
@@ -15,11 +14,6 @@ import java.util.UUID;
 public class NotificationEventPublisherImpl implements NotificationEventPublisher {
 
     private final ApplicationEventPublisher eventPublisher;
-
-    @Override
-    public void publishNotificationCreatedEvent(NotificationDto notificationDto) {
-        eventPublisher.publishEvent(new NotificationCreatedEvent(notificationDto));
-    }
 
     @Override
     public void publishRoleUpdatedEvent(UUID targetId, Role role) {
