@@ -46,7 +46,6 @@ public class NotificationStreamListener implements StreamListener<String, MapRec
 
         } catch (Exception e) {
             log.error("알림 처리 실패: [MessageId: {}]", record.getId(), e);
-            log.error("실패한 원본 데이터: {}", record.getValue());
         }
     }
 }

@@ -60,7 +60,7 @@ public class DirectMessageCreatorService {
                 .build();
 
         DirectMessage saved = directMessageRepository.save(directMessage);
-        log.info("DM 저장: {}", saved);
+        log.info("DM 저장: directMessageId={}", saved.getId());
 
         NotificationDto notificationDto = notificationService.createDirectMessageInCurrentTransaction(
                 receiver.getId(),

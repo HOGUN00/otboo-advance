@@ -6,6 +6,7 @@ import codeit.sb06.otboo.message.dto.DirectMessageDto;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.connection.stream.StreamRecords;
@@ -40,11 +41,19 @@ public class DirectMessageRedisPublisher {
                     .ofMap(map)
                     .withId(RecordId.autoGenerate());
 
-            redisTemplate.opsForStream().add(record);
+            addWithOneRetry(record);
             redisTemplate.opsForStream().trim(dmStreamKey, streamProperties.maxLength(), true);
             redisTemplate.expire(dmStreamKey, TIMEOUT, TimeUnit.DAYS);
         } catch (JsonProcessingException e) {
             throw new DirectMessageMappingException();
+        }
+    }
+
+    private void addWithOneRetry(MapRecord<String, String, String> record) {
+        try {
+            redisTemplate.opsForStream().add(record);
+        } catch (DataAccessException exception) {
+            redisTemplate.opsForStream().add(record);
         }
     }
 }

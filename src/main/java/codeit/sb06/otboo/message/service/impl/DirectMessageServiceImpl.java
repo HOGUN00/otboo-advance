@@ -18,6 +18,7 @@ import codeit.sb06.otboo.notification.service.NotificationCacheService;
 import codeit.sb06.otboo.user.entity.User;
 import codeit.sb06.otboo.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.stereotype.Service;
@@ -28,6 +29,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class DirectMessageServiceImpl implements DirectMessageService {
 
     private final DirectMessageRepository directMessageRepository;
@@ -42,13 +44,46 @@ public class DirectMessageServiceImpl implements DirectMessageService {
     @Override
     public DirectMessageDto create(UUID authenticatedSenderId, DirectMessageCreateRequest request) {
         DirectMessageCreation creation = creatorService.create(authenticatedSenderId, request);
-        directMessageRedisPublisher.publish(
-                creation.directMessageDto(),
-                creation.destination());
-        notificationCacheService.save(creation.notificationDto());
-        redisNotificationPublisher.publish(creation.notificationDto());
+        publishDirectMessage(creation);
+        cacheNotification(creation);
+        publishNotification(creation);
 
         return creation.directMessageDto();
+    }
+
+    private void publishDirectMessage(DirectMessageCreation creation) {
+        try {
+            directMessageRedisPublisher.publish(
+                    creation.directMessageDto(),
+                    creation.destination());
+        } catch (RuntimeException exception) {
+            log.error(
+                    "DM Redis Stream 처리 실패: directMessageId={}",
+                    creation.directMessageDto().id(),
+                    exception);
+        }
+    }
+
+    private void cacheNotification(DirectMessageCreation creation) {
+        try {
+            notificationCacheService.save(creation.notificationDto());
+        } catch (RuntimeException exception) {
+            log.error(
+                    "알림 Redis Cache 저장 실패: notificationId={}",
+                    creation.notificationDto().id(),
+                    exception);
+        }
+    }
+
+    private void publishNotification(DirectMessageCreation creation) {
+        try {
+            redisNotificationPublisher.publish(creation.notificationDto());
+        } catch (RuntimeException exception) {
+            log.error(
+                    "알림 Redis Stream 처리 실패: notificationId={}",
+                    creation.notificationDto().id(),
+                    exception);
+        }
     }
 
     @Override
