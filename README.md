@@ -97,9 +97,7 @@ flowchart LR
 **선택**
 
 - Redis Streams로 서버 간 이벤트 공유
-- 서버별 Consumer Group에서 메시지 수신
-- 각 서버의 로컬 연결 확인
-- 대상 사용자에게 최종 전달
+- 서버별 Consumer Group에서 수신 → 로컬 연결 확인 → 대상 사용자에게 전달
 
 **선택 근거**
 
