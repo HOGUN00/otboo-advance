@@ -85,7 +85,9 @@ dependencies {
     implementation 'net.javacrumbs.shedlock:shedlock-provider-redis-spring:5.15.1'
 
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-cache'
     implementation 'io.micrometer:micrometer-registry-prometheus'
+    implementation 'com.github.ben-manes.caffeine:caffeine'
 
     testImplementation('com.github.codemonstur:embedded-redis:1.4.3') {
         // embedded-redis가 commons-pool2를 대신 제공하면 운영 의존성 누락이 테스트에서 숨겨진다.
