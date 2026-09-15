@@ -78,6 +78,7 @@ flowchart LR
   - **275 msg/s 부하 통과**
 - Redis polling Connection 재사용 후 **875 msg/s 안정 처리량 확인**
 - Redis 명령 최적화 후 **900 msg/s 안정 처리량 확인**
+- 반복 DM 처리 기준 DB Query 5회 → 저장 통합 후 4회 → ChatRoom Cache 적용 후 3회
 - 1,000 msg/s는 안정화하지 못해 추가 병목을 확인하고 개선 범위 마무리
 
 🔗 [DM 성능 개선 상세](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)
