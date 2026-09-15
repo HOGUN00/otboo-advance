@@ -18,7 +18,7 @@
 | 구분 | 주요 경험 |
 | --- | --- |
 | 팀 프로젝트 | WebSocket 1:1 DM · SSE 알림 · Redis Streams 기반 다중 서버 전달·재처리 · 알림 Batch |
-| 개인 고도화 | DM DB 커넥션 병목 분석 · 알림 삭제 Batch 개선 · SSE 재연결 Race Condition · 권한 검증 개선 |
+| 개인 고도화 | DM 병목 분석·성능 개선 · 알림 삭제 Batch 개선 · SSE 재연결 Race Condition · 권한 검증 개선 |
 
 ---
 
@@ -27,16 +27,16 @@
 ### 실시간 DM 처리 흐름
 
 DM 요청은 WebSocket으로 수신하고, DM과 DM 알림을 하나의 트랜잭션에서 저장합니다.  
-트랜잭션 커밋 후 Redis Streams에 이벤트를 발행하고, 각 애플리케이션 서버가 서버별 Consumer Group으로 수신해 구독자에게 전달합니다.
+DB 작업이 끝난 뒤 Redis Stream에 DM을 발행하고, 각 애플리케이션 서버가 서버별 Consumer Group으로 수신해 구독자에게 전달합니다.
 
 ```mermaid
 flowchart LR
     Sender[발신자] -->|STOMP 메시지| WS[WebSocket 컨트롤러]
     WS --> Service[DM 서비스]
 
-    Service -->|DM·DM 알림 동일 트랜잭션| DB[(PostgreSQL)]
-    Service -->|애플리케이션 이벤트| Listener[DM 이벤트 리스너]
-    Listener -->|커밋 후 Redis Streams 발행| Stream[(Redis Streams)]
+    Service -->|DM·알림 저장| DB[(PostgreSQL)]
+    DB -->|Commit| Service
+    Service -->|Connection 반환 후 발행| Stream[(DM Redis Stream)]
 
     Stream -->|서버별 Consumer Group| App1[애플리케이션 서버 A]
     Stream -->|서버별 Consumer Group| App2[애플리케이션 서버 B]
@@ -52,30 +52,35 @@ flowchart LR
 
 ## 🔍 핵심 구현 및 개선
 
-### 1. DM DB 커넥션 병목 분석·개선
+### 1. 실시간 DM 병목 분석·성능 개선
 
-**문제**<br>
-500 VU 부하에서 HikariCP timeout·waiting 급증
+**문제**  
+부하 테스트에서 DB Connection 대기와 Redis Stream 소비 중단 발생
 
-**분석**<br>
-스레드 덤프에서 `HikariPool.getConnection()` 대기 확인<br>
-→ `AFTER_COMMIT + REQUIRES_NEW`에서 기존 Connection 반환 전 추가 Connection 획득 확인
+**개선**
 
-**개선**<br>
-DM·알림 DB 저장을 동일 트랜잭션으로 결합<br>
-→ 추가 Connection 획득 구간 제거
+- DM·알림 저장을 동일 트랜잭션으로 통합해 추가 DB Connection 획득 제거
+- Redis Stream polling Connection을 Lettuce pool로 재사용
+- Redis 작업 전에 JDBC Connection이 반환되도록 처리 흐름 분리
+- Stream 발행을 `XADD MAXLEN ~`로 통합하고 알림 Cache 명령을 Pipeline으로 전송
+- 반복 ChatRoom 조회를 ID Cache로 대체
 
-**검증**<br>
-HikariCP timeout **501 → 0**, max waiting **215 → 0**<br>
+**측정 기준**
 
-**후속 관찰**<br>
-DB 병목 제거 후 지속 부하 범위를 높이는 과정에서 Redis Stream Consumer의 별도 연결 문제를 확인
-→ Blocking Read용 Connection을 pool 없이 사용하는 구성에서 짧은 polling으로 Connection 생성·종료가 반복되고, 연속 부하 테스트에서 TIME_WAIT가 누적되는 현상을 확인
+- 60초 동안 지속 부하
+- 발신 메시지의 99% 이상이 10초 이내 상대 WebSocket에 도착하면 통과
+- 같은 조건에서 3회 모두 통과하면 안정 처리량으로 판단
 
-**설계 판단**<br>
-현재 범위에서는 DM·알림 DB 저장 정합성을 우선해 동일 트랜잭션으로 처리
+**결과**
 
-🔗 [DM 커넥션 병목 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c598011a903c678635d1e9a)
+- 저장 트랜잭션 통합 후
+  - 500 VU 병목 재현 조건에서 HikariCP timeout **501 → 0**, max waiting **215 → 0**
+  - **275 msg/s 부하 통과**
+- Redis polling Connection 재사용 후 **875 msg/s 안정 처리량 확인**
+- Redis 명령 최적화 후 **900 msg/s 안정 처리량 확인**
+- 1,000 msg/s는 안정화하지 못해 추가 병목을 확인하고 개선 범위 마무리
+
+🔗 [DM 성능 개선 상세](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)
 
 ### 2. 다중 서버 실시간 메시징 구조 설계
 
@@ -160,6 +165,7 @@ DM·알림 처리 흐름, PEL 재처리 정책, SSE 재연결 보정, 성능 측
 | Database | PostgreSQL, Redis |
 | Messaging | WebSocket (STOMP), SSE, Redis Streams |
 | Data Access | Spring Data JPA |
+| Cache | Caffeine |
 | Cloud | AWS ECS (Fargate), ECR, RDS, ElastiCache, S3, ALB |
 | Load Test | k6 |
 | Resilience | Resilience4j, ShedLock |
