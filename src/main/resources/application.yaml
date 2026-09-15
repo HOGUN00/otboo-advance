@@ -89,7 +89,7 @@ spring:
       lettuce:
         pool:
           enabled: true
-          max-active: 8
+          max-active: 16
           max-idle: 8
           max-wait: 1s
 
