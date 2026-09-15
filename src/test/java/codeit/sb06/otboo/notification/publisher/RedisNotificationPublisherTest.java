@@ -13,13 +13,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.redis.connection.RedisStreamCommands.XAddOptions;
 import org.springframework.data.redis.connection.stream.MapRecord;
+import org.springframework.data.redis.core.RedisOperations;
+import org.springframework.data.redis.core.SessionCallback;
 import org.springframework.data.redis.core.StreamOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.willReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class RedisNotificationPublisherTest {
@@ -35,6 +45,9 @@ class RedisNotificationPublisherTest {
     @Mock
     private StreamOperations<String, String, String> streamOps;
 
+    @Mock
+    private RedisOperations<String, String> redisOperations;
+
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule());
@@ -48,23 +61,53 @@ class RedisNotificationPublisherTest {
                         NOTIFICATION_STREAM_KEY,
                         "direct-message:stream",
                         STREAM_MAX_LENGTH
-                );
+        );
         redisNotificationPublisher = new RedisNotificationPublisherImpl(redisTemplate, objectMapper, streamProperties);
-        doReturn(streamOps).when(redisTemplate).opsForStream();
     }
 
 
     @Test
-    @DisplayName("알림이 Redis 스트림에 발행된다.")
+    @DisplayName("알림을 발행하면서 MAXLEN 근사 방식으로 Stream 길이를 제한한다.")
     void publishNotificationTest() {
         // given
         NotificationDto dto = easyRandom.nextObject(NotificationDto.class);
+        willReturn(streamOps).given(redisTemplate).opsForStream();
 
         // when
         redisNotificationPublisher.publish(dto);
 
         // then
-        verify(streamOps, times(1)).add(any(MapRecord.class));
-        verify(streamOps).trim(NOTIFICATION_STREAM_KEY, STREAM_MAX_LENGTH, true);
+        ArgumentCaptor<XAddOptions> optionsCaptor = ArgumentCaptor.forClass(XAddOptions.class);
+        verify(streamOps).add(any(MapRecord.class), optionsCaptor.capture());
+        assertThat(optionsCaptor.getValue().getMaxlen()).isEqualTo(STREAM_MAX_LENGTH);
+        assertThat(optionsCaptor.getValue().isApproximateTrimming()).isTrue();
+        verify(streamOps, never()).trim(anyString(), anyLong(), anyBoolean());
+    }
+
+    @Test
+    @DisplayName("알림 목록도 각각 MAXLEN 근사 방식으로 Stream 길이를 제한한다.")
+    @SuppressWarnings("unchecked")
+    void publishAllNotificationsTest() {
+        // given
+        List<NotificationDto> dtoList = easyRandom.objects(NotificationDto.class, 2).toList();
+        willReturn(streamOps).given(redisOperations).opsForStream();
+
+        // when
+        redisNotificationPublisher.publishAll(dtoList);
+
+        // then
+        ArgumentCaptor<SessionCallback<Object>> callbackCaptor =
+                ArgumentCaptor.forClass(SessionCallback.class);
+        verify(redisTemplate).executePipelined(callbackCaptor.capture());
+        callbackCaptor.getValue().execute(redisOperations);
+
+        ArgumentCaptor<XAddOptions> optionsCaptor = ArgumentCaptor.forClass(XAddOptions.class);
+        verify(streamOps, times(2)).add(any(MapRecord.class), optionsCaptor.capture());
+        assertThat(optionsCaptor.getAllValues())
+                .allSatisfy(options -> {
+                    assertThat(options.getMaxlen()).isEqualTo(STREAM_MAX_LENGTH);
+                    assertThat(options.isApproximateTrimming()).isTrue();
+                });
+        verify(streamOps, never()).trim(anyString(), anyLong(), anyBoolean());
     }
 }

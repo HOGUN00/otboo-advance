@@ -14,10 +14,10 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.doReturn;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willReturn;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
-import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class RedisStreamManagerTest {
@@ -38,7 +38,7 @@ class RedisStreamManagerTest {
         RedisStreamProperties streamProperties =
                 new RedisStreamProperties(NOTIFICATION_STREAM_KEY, DM_STREAM_KEY, 30_000L);
         streamManager = new RedisStreamManager(redisTemplate, SERVER_ID, streamProperties);
-        doReturn(streamOperations).when(redisTemplate).opsForStream();
+        willReturn(streamOperations).given(redisTemplate).opsForStream();
     }
 
     @Test
@@ -56,8 +56,8 @@ class RedisStreamManagerTest {
     @Test
     @DisplayName("컨슈머 그룹이 이미 존재하면 BUSYGROUP 예외를 무시한다")
     void ignoresAlreadyExistingGroups() {
-        when(streamOperations.createGroup(anyString(), any(ReadOffset.class), anyString()))
-                .thenThrow(new RedisSystemException(
+        given(streamOperations.createGroup(anyString(), any(ReadOffset.class), anyString()))
+                .willThrow(new RedisSystemException(
                         "BUSYGROUP Consumer Group name already exists", new RuntimeException()));
 
         assertDoesNotThrow(streamManager::init);

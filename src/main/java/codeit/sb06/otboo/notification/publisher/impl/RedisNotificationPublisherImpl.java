@@ -8,6 +8,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.jspecify.annotations.NonNull;
+import org.springframework.data.redis.connection.RedisStreamCommands.XAddOptions;
 import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.connection.stream.StreamRecords;
@@ -18,13 +19,10 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
 @Component
 @RequiredArgsConstructor
 public class RedisNotificationPublisherImpl implements RedisNotificationPublisher {
 
-    public static final int TIMEOUT = 1;
     private final StringRedisTemplate redisTemplate;
     private final ObjectMapper objectMapper;
     private final RedisStreamProperties streamProperties;
@@ -44,13 +42,9 @@ public class RedisNotificationPublisherImpl implements RedisNotificationPublishe
                     .ofMap(map)
                     .withId(RecordId.autoGenerate());
 
-            redisTemplate.opsForStream().add(record);
-            redisTemplate.opsForStream().trim(
-                    notificationStreamKey,
-                    streamProperties.maxLength(),
-                    true
-            );
-            redisTemplate.expire(notificationStreamKey, TIMEOUT, TimeUnit.DAYS);
+            XAddOptions options = XAddOptions.maxlen(streamProperties.maxLength())
+                    .approximateTrimming(true);
+            redisTemplate.opsForStream().add(record, options);
         } catch (JsonProcessingException e) {
             throw new NotificationMappingException();
         }
@@ -61,6 +55,8 @@ public class RedisNotificationPublisherImpl implements RedisNotificationPublishe
         if (dtoList == null || dtoList.isEmpty()) return;
 
         String notificationStreamKey = streamProperties.notificationKey();
+        XAddOptions options = XAddOptions.maxlen(streamProperties.maxLength())
+                .approximateTrimming(true);
         redisTemplate.executePipelined(new SessionCallback<Object>() {
             @Override
             @SuppressWarnings("unchecked")
@@ -82,15 +78,8 @@ public class RedisNotificationPublisherImpl implements RedisNotificationPublishe
                             .ofMap(map)
                             .withId(RecordId.autoGenerate());
 
-                    operations.opsForStream().add(record);
+                    operations.opsForStream().add(record, options);
                 }
-
-                operations.opsForStream().trim(
-                        notificationStreamKey,
-                        streamProperties.maxLength(),
-                        true
-                );
-                operations.expire(notificationStreamKey, TIMEOUT, TimeUnit.DAYS);
 
                 return null;
             }

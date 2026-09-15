@@ -12,16 +12,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.mockito.ArgumentCaptor;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.redis.RedisSystemException;
+import org.springframework.data.redis.connection.RedisStreamCommands.XAddOptions;
+import org.springframework.data.redis.connection.stream.MapRecord;
 import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.core.StreamOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
-import java.util.concurrent.TimeUnit;
-
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willReturn;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
 class DirectMessageRedisPublisherTest {
@@ -48,11 +55,11 @@ class DirectMessageRedisPublisherTest {
         RedisStreamProperties streamProperties =
                 new RedisStreamProperties("notification:stream", DM_STREAM_KEY, STREAM_MAX_LENGTH);
         directMessageRedisPublisher = new DirectMessageRedisPublisher(redisTemplate, objectMapper, streamProperties);
-        doReturn(streamOps).when(redisTemplate).opsForStream();
+        willReturn(streamOps).given(redisTemplate).opsForStream();
     }
 
     @Test
-    @DisplayName("DM이 Redis 스트림에 발행된다.")
+    @DisplayName("DM을 발행하면서 MAXLEN 근사 방식으로 Stream 길이를 제한한다.")
     void publishDirectMessageTest() {
         // given
         DirectMessageDto dto = easyRandom.nextObject(DirectMessageDto.class);
@@ -61,8 +68,11 @@ class DirectMessageRedisPublisherTest {
         directMessageRedisPublisher.publish(dto, "destination");
 
         // then
-        verify(streamOps, times(1)).add(any());
-        verify(streamOps).trim(DM_STREAM_KEY, STREAM_MAX_LENGTH, true);
+        ArgumentCaptor<XAddOptions> optionsCaptor = ArgumentCaptor.forClass(XAddOptions.class);
+        verify(streamOps).add(any(MapRecord.class), optionsCaptor.capture());
+        assertThat(optionsCaptor.getValue().getMaxlen()).isEqualTo(STREAM_MAX_LENGTH);
+        assertThat(optionsCaptor.getValue().isApproximateTrimming()).isTrue();
+        verify(streamOps, never()).trim(anyString(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -73,17 +83,16 @@ class DirectMessageRedisPublisherTest {
         RedisSystemException exception = new RedisSystemException(
                 "일시적인 Redis 오류",
                 new RuntimeException());
-        when(streamOps.add(any()))
-                .thenThrow(exception)
-                .thenReturn(RecordId.of("1-0"));
+        given(streamOps.add(any(MapRecord.class), any(XAddOptions.class)))
+                .willThrow(exception)
+                .willReturn(RecordId.of("1-0"));
 
         // when
         directMessageRedisPublisher.publish(dto, "destination");
 
         // then
-        verify(streamOps, times(2)).add(any());
-        verify(streamOps).trim(DM_STREAM_KEY, STREAM_MAX_LENGTH, true);
-        verify(redisTemplate).expire(DM_STREAM_KEY, DirectMessageRedisPublisher.TIMEOUT, TimeUnit.DAYS);
+        verify(streamOps, times(2)).add(any(MapRecord.class), any(XAddOptions.class));
+        verify(streamOps, never()).trim(anyString(), anyLong(), anyBoolean());
     }
 
     @Test
@@ -92,14 +101,13 @@ class DirectMessageRedisPublisherTest {
         // given
         DirectMessageDto dto = easyRandom.nextObject(DirectMessageDto.class);
         RedisSystemException exception = redisFailure();
-        when(streamOps.add(any())).thenThrow(exception);
+        given(streamOps.add(any(MapRecord.class), any(XAddOptions.class))).willThrow(exception);
 
         // when & then
         assertThatThrownBy(() -> directMessageRedisPublisher.publish(dto, "destination"))
                 .isSameAs(exception);
-        verify(streamOps, times(2)).add(any());
+        verify(streamOps, times(2)).add(any(MapRecord.class), any(XAddOptions.class));
         verify(streamOps, never()).trim(anyString(), anyLong(), anyBoolean());
-        verify(redisTemplate, never()).expire(anyString(), anyLong(), any());
     }
 
     @Test
@@ -108,42 +116,12 @@ class DirectMessageRedisPublisherTest {
         // given
         DirectMessageDto dto = easyRandom.nextObject(DirectMessageDto.class);
         IllegalStateException exception = new IllegalStateException("재시도 불가 오류");
-        when(streamOps.add(any())).thenThrow(exception);
+        given(streamOps.add(any(MapRecord.class), any(XAddOptions.class))).willThrow(exception);
 
         // when & then
         assertThatThrownBy(() -> directMessageRedisPublisher.publish(dto, "destination"))
                 .isSameAs(exception);
-        verify(streamOps).add(any());
-    }
-
-    @Test
-    @DisplayName("XTRIM 실패는 성공한 XADD를 재시도하지 않는다.")
-    void doNotRetryXaddWhenTrimFails() {
-        // given
-        DirectMessageDto dto = easyRandom.nextObject(DirectMessageDto.class);
-        RedisSystemException exception = redisFailure();
-        when(streamOps.trim(DM_STREAM_KEY, STREAM_MAX_LENGTH, true)).thenThrow(exception);
-
-        // when & then
-        assertThatThrownBy(() -> directMessageRedisPublisher.publish(dto, "destination"))
-                .isSameAs(exception);
-        verify(streamOps).add(any());
-        verify(redisTemplate, never()).expire(anyString(), anyLong(), any());
-    }
-
-    @Test
-    @DisplayName("EXPIRE 실패는 성공한 XADD를 재시도하지 않는다.")
-    void doNotRetryXaddWhenExpireFails() {
-        // given
-        DirectMessageDto dto = easyRandom.nextObject(DirectMessageDto.class);
-        RedisSystemException exception = redisFailure();
-        when(redisTemplate.expire(DM_STREAM_KEY, DirectMessageRedisPublisher.TIMEOUT, TimeUnit.DAYS))
-                .thenThrow(exception);
-
-        // when & then
-        assertThatThrownBy(() -> directMessageRedisPublisher.publish(dto, "destination"))
-                .isSameAs(exception);
-        verify(streamOps).add(any());
+        verify(streamOps).add(any(MapRecord.class), any(XAddOptions.class));
     }
 
     private RedisSystemException redisFailure() {
