@@ -84,56 +84,65 @@ flowchart LR
 
 ### 2. 다중 서버 실시간 메시징 구조 설계
 
-**제약**<br>
-`WebSocketSession`·`SseEmitter`는 각 서버의 로컬 메모리에서 관리<br>
-→ 이벤트 발생 서버 ≠ 사용자 연결 서버인 경우 직접 전달 불가
+**제약**
 
-**대안**<br>
-사용자-서버 연결 위치 별도 관리<br>
-vs<br>
-모든 서버에 이벤트 공유 후 각 서버의 로컬 연결 확인
+- `WebSocketSession`·`SseEmitter`는 각 서버의 로컬 메모리에서 관리
+- 이벤트 발생 서버 ≠ 사용자 연결 서버인 경우 직접 전달 불가
 
-**선택**<br>
-Redis Streams로 서버 간 이벤트 공유<br>
-→ 서버별 Consumer Group에서 메시지 수신<br>
-→ 각 서버의 로컬 연결 확인<br>
-→ 대상 사용자에게 최종 전달
+**대안**
 
-**선택 근거**<br>
-Redis Pub/Sub · RabbitMQ · Kafka · Redis Streams 비교<br>
-→ **Consumer 처리 확인 + 실패 재처리 + 기존 Redis 인프라 활용**
+- 사용자-서버 연결 위치 별도 관리
+- 모든 서버에 이벤트 공유 후 각 서버의 로컬 연결 확인
 
-**보장 범위**<br>
-Stream에 전달된 뒤 ACK되지 않은 메시지 → PEL에서 추적·재처리<br>
-DB Commit 후 실시간 이벤트의 Stream 발행 실패 → 현재 보장하지 않음<br>
-→ 원본 데이터는 PostgreSQL에 남으며 이후 조회 가능<br>
+**선택**
+
+- Redis Streams로 서버 간 이벤트 공유
+- 서버별 Consumer Group에서 메시지 수신
+- 각 서버의 로컬 연결 확인
+- 대상 사용자에게 최종 전달
+
+**선택 근거**
+
+- Redis Pub/Sub · RabbitMQ · Kafka · Redis Streams 비교
+- **Consumer 처리 확인 + 실패 재처리 + 기존 Redis 인프라 활용**
+
+**보장 범위**
+
+- Stream에 전달된 뒤 ACK되지 않은 메시지 → PEL에서 추적·재처리
+- DB Commit 후 실시간 이벤트의 Stream 발행 실패 → 현재 보장하지 않음
+  - 원본 데이터는 PostgreSQL에 남으며 이후 조회 가능
 
 🔗 [다중 서버 메시징 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14)
 
 ### 3. 알림 삭제 Batch 구조 개선
 
-**문제**<br>
-Batch Job은 `COMPLETED`<br>
-→ 실제 알림 데이터는 삭제되지 않음
+**문제**
 
-**원인**<br>
-삭제 처리에 사용한 `JpaItemWriter`가 `remove()`가 아닌 `merge()` 수행
+- Batch Job은 `COMPLETED`
+- 실제 알림 데이터는 삭제되지 않음
 
-**개선**<br>
-`JdbcPagingItemReader`로 삭제 대상 UUID 조회<br>
-→ `JdbcBatchItemWriter`로 Batch DELETE<br>
-→ 재시작을 고려한 `created_at, id` 복합 정렬<br>
-→ 날짜 기준 JobParameter 적용
+**원인**
 
-**확인**<br>
-실제 삭제 동작 확인<br>
-`EXPLAIN ANALYZE`로 Paging 조회 계획 비교<br>
-→ 47,300건 기준 첫 페이지 **8.056ms → 0.066ms**<br>
-→ `Index Only Scan` 전환
+- 삭제 처리에 사용한 `JpaItemWriter`가 `remove()`가 아닌 `merge()` 수행
 
-**판단**<br>
-엔티티 생명주기 처리가 필요하지 않은 대량 삭제<br>
-→ **JDBC Paging + Batch DELETE 선택**
+**개선**
+
+- `JdbcPagingItemReader`로 삭제 대상 UUID 조회
+- `JdbcBatchItemWriter`로 Batch DELETE
+- 재시작을 고려한 `created_at, id` 복합 정렬
+- 날짜 기준 JobParameter 적용
+
+**확인**
+
+- 실제 삭제 동작 확인
+- `EXPLAIN ANALYZE`로 Paging 조회 계획 비교
+  - 47,300건 기준 첫 페이지 **8.056ms → 0.066ms**
+  - `Index Only Scan` 전환
+
+**판단**
+
+- 엔티티 생명주기 처리가 필요하지 않은 대량 삭제
+- **JDBC Paging + Batch DELETE 선택**
 
 🔗 [알림 삭제 Batch 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c5980f9ab74c3d2026fc93b)
 
