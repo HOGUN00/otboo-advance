@@ -1,19 +1,20 @@
 package codeit.sb06.otboo.message.service;
 
-import codeit.sb06.otboo.exception.user.UserNotFoundException;
+import codeit.sb06.otboo.message.dto.DirectMessageCreation;
 import codeit.sb06.otboo.message.dto.DirectMessageDto;
 import codeit.sb06.otboo.message.dto.request.DirectMessageCreateRequest;
 import codeit.sb06.otboo.message.dto.response.DirectMessageDtoCursorResponse;
 import codeit.sb06.otboo.message.entity.ChatRoom;
 import codeit.sb06.otboo.message.entity.DirectMessage;
 import codeit.sb06.otboo.message.mapper.DirectMessageMapper;
-import codeit.sb06.otboo.message.publisher.DirectMessageEventPublisher;
+import codeit.sb06.otboo.message.publisher.DirectMessageRedisPublisher;
 import codeit.sb06.otboo.message.repository.ChatRoomRepository;
 import codeit.sb06.otboo.message.repository.DirectMessageRepository;
+import codeit.sb06.otboo.message.service.impl.DirectMessageCreatorService;
 import codeit.sb06.otboo.message.service.impl.DirectMessageServiceImpl;
-import codeit.sb06.otboo.notification.publisher.NotificationEventPublisher;
 import codeit.sb06.otboo.notification.dto.NotificationDto;
-import codeit.sb06.otboo.notification.service.NotificationService;
+import codeit.sb06.otboo.notification.publisher.RedisNotificationPublisher;
+import codeit.sb06.otboo.notification.service.NotificationCacheService;
 import codeit.sb06.otboo.user.entity.User;
 import codeit.sb06.otboo.user.repository.UserRepository;
 import codeit.sb06.otboo.util.EasyRandomUtil;
@@ -22,12 +23,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Slice;
 import org.springframework.data.domain.SliceImpl;
+import org.springframework.data.redis.RedisSystemException;
 
 import java.util.List;
 import java.util.Optional;
@@ -39,9 +42,11 @@ import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.willThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 @ExtendWith(MockitoExtension.class)
 class DirectMessageServiceImplTest {
@@ -55,19 +60,19 @@ class DirectMessageServiceImplTest {
     private UserRepository userRepository;
 
     @Mock
-    private ChatRoomService chatRoomService;
+    private DirectMessageCreatorService creatorService;
 
     @Mock
-    private NotificationEventPublisher notificationEventPublisher;
+    private NotificationCacheService notificationCacheService;
 
     @Mock
-    private NotificationService notificationService;
+    private RedisNotificationPublisher redisNotificationPublisher;
 
     @Mock
     private ChatRoomRepository chatRoomRepository;
 
     @Mock
-    private DirectMessageEventPublisher dmEventPublisher;
+    private DirectMessageRedisPublisher directMessageRedisPublisher;
 
     // 실제 변환을 위해 spy 사용
     @Spy
@@ -81,55 +86,96 @@ class DirectMessageServiceImplTest {
     void createDirectMessageTest() {
         // given
         DirectMessageCreateRequest request = easyRandom.nextObject(DirectMessageCreateRequest.class);
-
-        User sender = mock(User.class);
-        User receiver = mock(User.class);
-        String senderName = "sender";
-        NotificationDto notification = easyRandom.nextObject(NotificationDto.class);
-        given(sender.getId()).willReturn(request.senderId());
-        given(sender.getName()).willReturn(senderName);
-        given(receiver.getId()).willReturn(request.receiverId());
-        given(userRepository.findAllById(any()))
-                .willReturn(List.of(sender, receiver));
-        given(chatRoomService.getOrCreatePrivateRoom(sender, receiver))
-                .willReturn(mock(ChatRoom.class));
-        given(directMessageRepository.save(any(DirectMessage.class)))
-                .willAnswer(invocation -> invocation.getArgument(0));
-        given(notificationService.createDirectMessageInCurrentTransaction(
-                request.receiverId(),
-                senderName,
-                request.content()))
-                .willReturn(notification);
+        DirectMessageDto dto = easyRandom.nextObject(DirectMessageDto.class);
+        NotificationDto notificationDto = easyRandom.nextObject(NotificationDto.class);
+        String destination = "/sub/direct-messages_key";
+        DirectMessageCreation creation = new DirectMessageCreation(
+                dto,
+                notificationDto,
+                destination);
+        UUID authenticatedSenderId = request.senderId();
+        given(creatorService.create(authenticatedSenderId, request)).willReturn(creation);
 
         // when
-        UUID authenticatedSenderId = request.senderId();
-        DirectMessageDto dmDto = directMessageService.create(authenticatedSenderId, request);
+        DirectMessageDto actual = directMessageService.create(authenticatedSenderId, request);
 
         // then
-        assertAll(
-                () -> assertThat(dmDto).isNotNull(),
-                () -> assertThat(dmDto.content()).isEqualTo(request.content())
-        );
-        verify(notificationEventPublisher).publishNotificationCreatedEvent(notification);
+        assertThat(actual).isEqualTo(dto);
+        InOrder inOrder = inOrder(
+                creatorService,
+                directMessageRedisPublisher,
+                notificationCacheService,
+                redisNotificationPublisher);
+        inOrder.verify(creatorService).create(authenticatedSenderId, request);
+        inOrder.verify(directMessageRedisPublisher).publish(dto, destination);
+        inOrder.verify(notificationCacheService).save(notificationDto);
+        inOrder.verify(redisNotificationPublisher).publish(notificationDto);
     }
 
     @Test
-    @DisplayName("수신자가 존재하지 않으면 DM 생성에 실패한다")
-    void createDirectMessageWithMissingReceiverFails() {
-        UUID senderId = UUID.randomUUID();
-        UUID receiverId = UUID.randomUUID();
-        DirectMessageCreateRequest request = new DirectMessageCreateRequest(
-                receiverId,
-                senderId,
-                "content");
-        User sender = mock(User.class);
+    @DisplayName("DM Redis 발행이 최종 실패해도 알림 전달을 시도하고 저장된 DM을 반환한다.")
+    void continueNotificationDeliveryWhenDirectMessagePublicationFails() {
+        // given
+        DirectMessageCreateRequest request = easyRandom.nextObject(DirectMessageCreateRequest.class);
+        DirectMessageCreation creation = givenCreation(request);
+        willThrow(redisFailure()).given(directMessageRedisPublisher)
+                .publish(creation.directMessageDto(), creation.destination());
 
-        given(sender.getId()).willReturn(senderId);
-        given(userRepository.findAllById(any())).willReturn(List.of(sender));
+        // when
+        DirectMessageDto actual = directMessageService.create(request.senderId(), request);
 
-        assertThatThrownBy(() -> directMessageService.create(senderId, request))
-                .isInstanceOf(UserNotFoundException.class);
-        verify(chatRoomService, never()).getOrCreatePrivateRoom(any(), any());
+        // then
+        assertThat(actual).isEqualTo(creation.directMessageDto());
+        verify(notificationCacheService).save(creation.notificationDto());
+        verify(redisNotificationPublisher).publish(creation.notificationDto());
+    }
+
+    @Test
+    @DisplayName("알림 캐시 저장이 실패해도 알림 Redis 발행을 시도하고 저장된 DM을 반환한다.")
+    void continueNotificationPublicationWhenNotificationCacheFails() {
+        // given
+        DirectMessageCreateRequest request = easyRandom.nextObject(DirectMessageCreateRequest.class);
+        DirectMessageCreation creation = givenCreation(request);
+        willThrow(redisFailure()).given(notificationCacheService).save(creation.notificationDto());
+
+        // when
+        DirectMessageDto actual = directMessageService.create(request.senderId(), request);
+
+        // then
+        assertThat(actual).isEqualTo(creation.directMessageDto());
+        verify(redisNotificationPublisher).publish(creation.notificationDto());
+    }
+
+    @Test
+    @DisplayName("알림 Redis 발행이 실패해도 저장된 DM을 반환한다.")
+    void returnCreatedDirectMessageWhenNotificationPublicationFails() {
+        // given
+        DirectMessageCreateRequest request = easyRandom.nextObject(DirectMessageCreateRequest.class);
+        DirectMessageCreation creation = givenCreation(request);
+        willThrow(redisFailure()).given(redisNotificationPublisher).publish(creation.notificationDto());
+
+        // when
+        DirectMessageDto actual = directMessageService.create(request.senderId(), request);
+
+        // then
+        assertThat(actual).isEqualTo(creation.directMessageDto());
+    }
+
+    @Test
+    @DisplayName("DM과 알림 생성이 실패하면 예외를 전파하고 Redis 작업을 실행하지 않는다.")
+    void propagateCreationFailureWithoutRedisCalls() {
+        // given
+        DirectMessageCreateRequest request = easyRandom.nextObject(DirectMessageCreateRequest.class);
+        IllegalStateException exception = new IllegalStateException("DB 저장 실패");
+        given(creatorService.create(request.senderId(), request)).willThrow(exception);
+
+        // when & then
+        assertThatThrownBy(() -> directMessageService.create(request.senderId(), request))
+                .isSameAs(exception);
+        verifyNoInteractions(
+                directMessageRedisPublisher,
+                notificationCacheService,
+                redisNotificationPublisher);
     }
 
     @Test
@@ -165,5 +211,18 @@ class DirectMessageServiceImplTest {
                 () -> assertThat(response).isNotNull(),
                 () -> assertThat(response.data()).hasSize(limit)
         );
+    }
+
+    private DirectMessageCreation givenCreation(DirectMessageCreateRequest request) {
+        DirectMessageCreation creation = new DirectMessageCreation(
+                easyRandom.nextObject(DirectMessageDto.class),
+                easyRandom.nextObject(NotificationDto.class),
+                "/sub/direct-messages_key");
+        given(creatorService.create(request.senderId(), request)).willReturn(creation);
+        return creation;
+    }
+
+    private RedisSystemException redisFailure() {
+        return new RedisSystemException("Redis 오류", new RuntimeException());
     }
 }

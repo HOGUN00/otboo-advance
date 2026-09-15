@@ -44,7 +44,6 @@ public class DirectMessageStreamListener implements StreamListener<String, MapRe
 
         } catch (Exception e) {
             log.error("dm 처리 실패: [MessageId: {}], 오류: {}", record.getId(), e.getMessage());
-            log.error("실패한 원본 데이터: {}", record.getValue());
         }
     }
 }

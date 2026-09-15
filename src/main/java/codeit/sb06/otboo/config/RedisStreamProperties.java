@@ -5,6 +5,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @ConfigurationProperties(prefix = "otboo.redis.stream")
 public record RedisStreamProperties(
         String notificationKey,
-        String directMessageKey
+        String directMessageKey,
+        long maxLength
 ) {
 }

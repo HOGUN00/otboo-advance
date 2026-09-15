@@ -1,6 +1,5 @@
 package codeit.sb06.otboo.notification.listener;
 
-import codeit.sb06.otboo.notification.dto.NotificationDto;
 import codeit.sb06.otboo.notification.enums.NotificationLevel;
 import codeit.sb06.otboo.notification.event.*;
 import codeit.sb06.otboo.notification.publisher.RedisNotificationPublisher;
@@ -33,21 +32,6 @@ class NotificationListenerTest {
 
     @InjectMocks
     private NotificationEventListener listener;
-
-    @Test
-    @DisplayName("저장된 알림 이벤트 수신 시 캐시 저장과 Redis 발행을 수행한다")
-    void notificationCreatedEventTest() {
-        // given
-        NotificationDto notification = easyRandom.nextObject(NotificationDto.class);
-        NotificationCreatedEvent event = new NotificationCreatedEvent(notification);
-
-        // when
-        listener.handleNotificationCreatedEvent(event);
-
-        // then
-        verify(notificationCacheService).save(notification);
-        verify(redisNotificationPublisher).publish(notification);
-    }
 
     @Test
     @DisplayName("권한 변경 이벤트 수신 시 알림이 생성된다.")

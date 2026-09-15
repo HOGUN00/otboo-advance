@@ -46,7 +46,7 @@ class NotificationStreamRecoverySchedulerTest {
     @BeforeEach
     void setUp() {
         RedisStreamProperties streamProperties =
-                new RedisStreamProperties(notificationStreamKey, "test-dm-stream");
+                new RedisStreamProperties(notificationStreamKey, "test-dm-stream", 30_000L);
         scheduler = new NotificationStreamRecoveryScheduler(
                 redisTemplate, null, serverId, streamProperties, sseService);
         ReflectionTestUtils.setField(scheduler, "groupName", groupName);

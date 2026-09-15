@@ -86,6 +86,12 @@ spring:
         enabled: false
       connect-timeout: 5s
       timeout: 3s
+      lettuce:
+        pool:
+          enabled: true
+          max-active: 16
+          max-idle: 8
+          max-wait: 1s
 
   batch:
     jdbc:
@@ -150,10 +156,16 @@ openweather:
   key: ${OPENWEATHER_API_KEY:your-openweather-api-key}
 
 otboo:
+  cache:
+    chat-room:
+      maximum-size: ${CHAT_ROOM_CACHE_MAXIMUM_SIZE:100000}
+      expire-after-access: ${CHAT_ROOM_CACHE_EXPIRE_AFTER_ACCESS:1h}
+
   redis:
     stream:
       notification-key: notification:stream
       direct-message-key: direct-message:stream
+      max-length: ${REDIS_STREAM_MAX_LENGTH:30000}
 
   jwt:
     access-token:

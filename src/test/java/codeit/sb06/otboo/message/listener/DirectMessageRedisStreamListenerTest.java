@@ -45,7 +45,7 @@ class DirectMessageRedisStreamListenerTest {
     void setUp() {
         // 생성자 주입 (Lombok @RequiredArgsConstructor 대응)
         RedisStreamProperties streamProperties =
-                new RedisStreamProperties("notification:stream", STREAM_KEY);
+                new RedisStreamProperties("notification:stream", STREAM_KEY, 30_000L);
         listener = new DirectMessageStreamListener(
                 redisTemplate, streamProperties, SERVER_ID, messagingTemplate
         );
