@@ -39,10 +39,16 @@ public class NotificationCacheServiceImpl implements NotificationCacheService {
     public void save(NotificationDto dto) {
 
         String key = KEY_PREFIX + dto.receiverId();
+        String json = toJson(dto);
 
-        redisTemplate.opsForList().leftPush(key, toJson(dto));
-        redisTemplate.opsForList().trim(key, 0, MAX_NOTIFICATIONS - 1L);
-        redisTemplate.expire(key, TIMEOUT, TimeUnit.DAYS);
+        redisTemplate.executePipelined(new SessionCallback<Object>() {
+            @Override
+            @SuppressWarnings("unchecked")
+            public Object execute(@NonNull RedisOperations operations) {
+                addCacheCommands(operations, key, json);
+                return null;
+            }
+        });
     }
 
     @Override
@@ -60,9 +66,7 @@ public class NotificationCacheServiceImpl implements NotificationCacheService {
                     String key = KEY_PREFIX + dto.receiverId();
                     String json = toJson(dto);
 
-                    operations.opsForList().leftPush(key, json);
-                    operations.opsForList().trim(key, 0, MAX_NOTIFICATIONS - 1L);
-                    operations.expire(key, TIMEOUT, TimeUnit.DAYS);
+                    addCacheCommands(operations, key, json);
                 }
                 return null;
             }
@@ -132,5 +136,12 @@ public class NotificationCacheServiceImpl implements NotificationCacheService {
         } catch (Exception e) {
             throw new NotificationMappingException();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void addCacheCommands(RedisOperations operations, String key, String json) {
+        operations.opsForList().leftPush(key, json);
+        operations.opsForList().trim(key, 0, MAX_NOTIFICATIONS - 1L);
+        operations.expire(key, TIMEOUT, TimeUnit.DAYS);
     }
 }
