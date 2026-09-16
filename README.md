@@ -52,7 +52,7 @@ flowchart LR
 
 ## 🔍 핵심 구현 및 개선
 
-### 1. 실시간 DM 병목 분석·성능 개선
+### 1. 이벤트 처리 병목 분석·성능 개선
 
 **문제**  
 부하 테스트에서 DB Connection 대기와 Redis Stream 소비 중단 발생
@@ -83,7 +83,7 @@ flowchart LR
 
 🔗 [DM 성능 개선 상세](https://www.notion.so/312203c86c5980dbafc7f1961b01eda4)
 
-### 2. 다중 서버 실시간 메시징 구조 설계
+### 2. 다중 서버 이벤트 전달·실패 복구 구조 설계
 
 **제약**
 
@@ -113,7 +113,7 @@ flowchart LR
 
 🔗 [다중 서버 메시징 상세](https://app.notion.com/p/312203c86c5980dbafc7f1961b01eda4?source=copy_link#3bb203c86c59806d9054cad610599a14)
 
-### 3. 알림 삭제 Batch 구조 개선
+### 3. 대량 데이터 삭제 Batch 구조 개선
 
 **문제**
 
